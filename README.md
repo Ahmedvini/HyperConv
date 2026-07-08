@@ -50,16 +50,25 @@ dump waveforms.
 
 ## FPGA results (post-route, Vivado 2025.2, out-of-context, N=3, 32×32)
 
-| | ZCU106 (XCZU7EV -2) | PYNQ-Z2/Zybo (XC7Z020 -1) |
-|---|---|---|
-| LUTs / FFs / DSPs / BRAMs | 842 / 404 / **0** / **0** | 851 / 463 / **0** / **0** |
-| Timing | met @ 300 MHz, Fmax ≈ 479 MHz | Fmax ≈ 173 MHz (LUT mult; DSP variant closes 200 MHz) |
-| Power (static + dynamic) | 0.592 + 0.041 W | 0.103 + 0.043 W |
-| FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 1.88×10⁻³ | **8.05×10⁻³** |
+Two multiplier mappings measured on two parts; **DSP variant is the chosen
+configuration** (better on every axis — the hard DSP registers absorb the
+pipeline FFs and shorten the multiply path):
 
-Reproduce with `vivado -mode batch -source synth/build.tcl`
-(`-tclargs <part> <clk_ns> <tag>` to retarget). Reports land in
-`synth/reports*/`. See `docs/report_skeleton.md` for the report draft.
+| | ZCU106 LUT-mult | **ZCU106 DSP** | Z7020 LUT-mult | **Z7020 DSP** |
+|---|---|---|---|---|
+| LUTs / FFs / DSPs / BRAMs | 842 / 404 / 0 / 0 | 263 / 140 / 9 / 0 | 851 / 463 / 0 / 0 | 290 / 140 / 9 / 0 |
+| Fmax (constraint) | 479 MHz (300 ✓) | **598 MHz** (300 ✓) | 173 MHz (200 ✗) | **259 MHz** (200 ✓) |
+| Power: static + dynamic | 0.592 + 0.041 W | 0.592 + 0.029 W | 0.103 + 0.043 W | 0.103 + 0.034 W |
+| FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 1.88×10⁻³ | 2.26×10⁻³ | 8.05×10⁻³ | **9.79×10⁻³** |
+
+ZCU106 = XCZU7EV-2 (user board); Z7020 = XC7Z020-1 (PYNQ-Z2/Zybo class).
+The FoM gap between parts is almost entirely static power — the design
+itself burns ≤43 mW.
+
+Reproduce with `vivado -mode batch -source synth/build.tcl -tclargs
+<part> <clk_ns> <tag> [dsp]` (no tclargs = ZCU106 @ 300 MHz, LUT mult).
+Reports land in `synth/reports*/`. See `docs/report_skeleton.md` for the
+report draft.
 
 ## Verification status
 
