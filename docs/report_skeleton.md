@@ -85,7 +85,7 @@ N=3, 32×32, 4 kernel sets), from synth/reports_zu_dsp/:
 | CLB Registers | 140 — 0.03 % |
 | DSPs | **9** (DSP48E2, one per product; hard regs absorb pipeline FFs) |
 | BRAMs | **0** (line buffers in distributed RAM, by design) |
-| Timing | WNS **+1.662 ns** at 300 MHz → met; **Fmax ≈ 598 MHz** |
+| Timing | WNS **+1.094 ns** at 300 MHz → met; **Fmax ≈ 446 MHz** (incl. 25%-period I/O budget; internal fabric paths alone ≈ 598 MHz) |
 | Power | 0.621 W total = 0.592 W static (die leakage) + **0.029 W dynamic** |
 | Power confidence | Medium (vectorless, default toggle rates) |
 
@@ -111,7 +111,7 @@ measured there as the justification for choosing DSP mapping.
 | Latency | — | 71 (32×32, N=3) | cycles | first px → first out |
 | Throughput | — | 1 steady-state (0.879 frame-avg) | pixels/cycle | 900 out / 1024 in |
 | FPGA utilization | LUTs, FFs, DSPs, BRAMs | 263 / 140 / 9 / 0 | | ZCU106, post-route, DSP variant |
-| Maximum frequency | — | 598 (WNS +1.662 @ 300 MHz) | MHz | timing met |
+| Maximum frequency | — | 446 (WNS +1.094 @ 300 MHz) | MHz | timing met, incl. I/O delay budget |
 | Power estimate | — | 621 (29 dynamic + 592 static) | mW | report_power, vectorless |
 | Verification status | Pass/Fail + cases | PASS, 9/9 cases | | bit-exact vs golden |
 | FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 2.26×10⁻³ | | ZCU106; 9.79×10⁻³ on Z7020 (§8) |

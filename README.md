@@ -57,13 +57,16 @@ pipeline FFs and shorten the multiply path):
 | | ZCU106 LUT-mult | **ZCU106 DSP** | Z7020 LUT-mult | **Z7020 DSP** |
 |---|---|---|---|---|
 | LUTs / FFs / DSPs / BRAMs | 842 / 404 / 0 / 0 | 263 / 140 / 9 / 0 | 851 / 463 / 0 / 0 | 290 / 140 / 9 / 0 |
-| Fmax (constraint) | 479 MHz (300 ✓) | **598 MHz** (300 ✓) | 173 MHz (200 ✗) | **259 MHz** (200 ✓) |
+| Fmax (constraint) | 479 MHz (300 ✓) | **598 MHz** (300 ✓)¹ | 173 MHz (200 ✗) | **259 MHz** (200 ✓) |
 | Power: static + dynamic | 0.592 + 0.041 W | 0.592 + 0.029 W | 0.103 + 0.043 W | 0.103 + 0.034 W |
 | FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 1.88×10⁻³ | 2.26×10⁻³ | 8.05×10⁻³ | **9.79×10⁻³** |
 
 ZCU106 = XCZU7EV-2 (user board); Z7020 = XC7Z020-1 (PYNQ-Z2/Zybo class).
 The FoM gap between parts is almost entirely static power — the design
 itself burns ≤43 mW.
+¹ Internal fabric paths; with the 25%-period I/O delay budget now in the
+constraints the reported WNS is +1.094 ns @ 300 MHz (Fmax ≈ 446 MHz).
+The methodology report is clean: 0 SYNTH-9, 0 TIMING-18.
 
 Reproduce with `vivado -mode batch -source synth/build.tcl -tclargs
 <part> <clk_ns> <tag> [lutmult]` (no tclargs = ZCU106 @ 300 MHz; DSP
