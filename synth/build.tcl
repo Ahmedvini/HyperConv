@@ -3,8 +3,9 @@
 # Out-of-context synthesis + implementation of conv_top, producing the
 # utilization / timing / power reports required by the competition.
 #
-#   vivado -mode batch -source synth/build.tcl [-tclargs <part> [<clk_ns>] [<tag>] [dsp]]
-#   4th arg "dsp" maps the multipliers onto DSP blocks (USE_DSP_MULT)
+#   vivado -mode batch -source synth/build.tcl [-tclargs <part> [<clk_ns>] [<tag>] [lutmult]]
+#   Multipliers use DSP blocks by default; 4th arg "lutmult" forces LUT
+#   multipliers (NO_DSP_MULT) for resource-tradeoff comparison.
 #
 # Default part: ZCU106 (Zynq UltraScale+ XCZU7EV). OOC mode is used because
 # the accelerator is a core, not a full board design; pin constraints are
@@ -17,7 +18,7 @@ set defines {}
 if {$argc > 0} { set part   [lindex $argv 0] }
 if {$argc > 1} { set clk_ns [lindex $argv 1] }
 if {$argc > 2} { set tag    _[lindex $argv 2] }
-if {$argc > 3 && [lindex $argv 3] eq "dsp"} { set defines {USE_DSP_MULT=1} }
+if {$argc > 3 && [lindex $argv 3] eq "lutmult"} { set defines {NO_DSP_MULT=1} }
 
 set root    [file normalize [file join [file dirname [info script]] ..]]
 set reports $root/synth/reports$tag
@@ -29,6 +30,11 @@ read_verilog [glob $root/rtl/*.v]
 set xdc $reports/ooc_gen.xdc
 set fh [open $xdc w]
 puts $fh "create_clock -period $clk_ns -name clk \[get_ports clk\]"
+# I/O delay budget for the OOC core (25% of the period each side) so timing
+# analysis covers port paths and TIMING-18 methodology checks are satisfied
+set tio [format %.3f [expr {$clk_ns * 0.25}]]
+puts $fh "set_input_delay  -clock clk $tio \[get_ports -filter {DIRECTION == IN && NAME != clk}\]"
+puts $fh "set_output_delay -clock clk $tio \[all_outputs\]"
 close $fh
 read_xdc -mode out_of_context $xdc
 
@@ -50,6 +56,7 @@ report_timing_summary   -file $reports/timing_impl.rpt -delay_type min_max \
                         -report_unconstrained -max_paths 10
 report_power            -file $reports/power_impl.rpt
 report_design_analysis  -file $reports/design_analysis.rpt
+report_methodology      -file $reports/methodology.rpt
 
 write_checkpoint -force $root/synth/conv_top_routed$tag.dcp
 

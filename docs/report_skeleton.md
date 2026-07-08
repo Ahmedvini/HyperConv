@@ -76,7 +76,7 @@ TODO: waveform screenshots (xsim `+VCD` or Vivado GUI on the routed dcp).
 
 ## 5. FPGA results (ZCU106, xczu7ev-ffvc1156-2-e, Vivado 2025.2, OOC, 300 MHz target)
 
-Post-route, chosen configuration (DSP multipliers, `dsp` build option;
+Post-route, chosen configuration (DSP multipliers — the RTL default;
 N=3, 32×32, 4 kernel sets), from synth/reports_zu_dsp/:
 
 | Metric | Value |
@@ -121,6 +121,8 @@ measured there as the justification for choosing DSP mapping.
 - Part: xczu7ev-ffvc1156-2-e (ZCU106); tool: Vivado 2025.2; OOC flow
   (accelerator is a core; pin/board integration out of scope)
 - Clock target 300 MHz; power is vectorless estimate at default toggle rates
+- Core ports constrained with a 25%-of-period input/output delay budget
+  (OOC methodology requirement, TIMING-18); port paths are timed against it
 - Pixels stream row-major from the testbench (no bus interface); kernel
   loaded via dedicated write port before the frame
 - k_sel stable ≥1 cycle before first pixel of a frame (registered mux)
@@ -135,8 +137,9 @@ measured there as the justification for choosing DSP mapping.
   405 to 479 MHz and *reduced* LUTs (899→842) — shallower carry chains
   pack better. Good report narrative: measured, not guessed.
 - DSP vs LUT multipliers: with LUT multipliers the Z7020 critical path is
-  the 9×8 multiply itself (5.8 ns). Build with `-tclargs <part> <ns> <tag>
-  dsp` maps them to DSP blocks. TODO: fill measured DSP-variant numbers:
+  the 9×8 multiply itself (5.8 ns), and synthesis raises 72 SYNTH-9
+  warnings suggesting USE_DSP48. DSP mapping is now the RTL default;
+  `-tclargs <part> <ns> <tag> lutmult` reproduces the LUT variant:
 
 | Variant (post-route) | ZCU106 LUT-mult | ZCU106 DSP | Z7020 LUT-mult | Z7020 DSP |
 |---|---|---|---|---|

@@ -66,9 +66,10 @@ The FoM gap between parts is almost entirely static power — the design
 itself burns ≤43 mW.
 
 Reproduce with `vivado -mode batch -source synth/build.tcl -tclargs
-<part> <clk_ns> <tag> [dsp]` (no tclargs = ZCU106 @ 300 MHz, LUT mult).
-Reports land in `synth/reports*/`. See `docs/report_skeleton.md` for the
-report draft.
+<part> <clk_ns> <tag> [lutmult]` (no tclargs = ZCU106 @ 300 MHz; DSP
+multipliers are the default, `lutmult` forces the LUT variant). Reports
+land in `synth/reports*/`. See `docs/report_skeleton.md` for the report
+draft.
 
 ## Verification status
 

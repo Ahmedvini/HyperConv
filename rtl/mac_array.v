@@ -45,13 +45,14 @@ module mac_array #(
     localparam signed [ACC_W-1:0] SAT_MIN = -(1 << (OUT_W-1));
 
     // ------------------------------------------------------ stage 1: products
-    // Define USE_DSP_MULT to map the multipliers onto DSP blocks: costs
-    // 50/DSP in the competition FoM but removes the deep LUT-multiply path
-    // (needed for timing on slower fabrics, e.g. 7-series -1).
-`ifdef USE_DSP_MULT
-    (* use_dsp = "yes" *) reg signed [PROD_W-1:0] prod [0:NN-1];
-`else
+    // Multipliers map onto DSP blocks by default: measured better than LUT
+    // multipliers on LUTs, FFs, Fmax, power and FoM (the 50/DSP FoM cost is
+    // outweighed by ~560 LUTs saved), and required to meet timing on slower
+    // fabrics (7-series -1). Define NO_DSP_MULT to force LUT multipliers.
+`ifdef NO_DSP_MULT
     reg signed [PROD_W-1:0] prod [0:NN-1];
+`else
+    (* use_dsp = "yes" *) reg signed [PROD_W-1:0] prod [0:NN-1];
 `endif
     reg v1;
     integer k, g;
