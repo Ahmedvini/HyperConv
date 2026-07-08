@@ -24,7 +24,8 @@ framework convention; the golden model is bit-exact identical.
 ```
 rtl/        conv_top.v (top) · window_gen.v · line_buffer.v · kernel_mem.v · mac_array.v
 tb/         tb_conv_top.v — self-checking, file-driven testbench
-golden/     conv_golden.py — bit-exact reference · gen_tests.py — vector generator
+golden/     conv_golden.py + gen_tests.py — bit-exact Python reference & vector generator
+            conv_golden.m + check_all_tests.m — MATLAB/Octave reference & RTL checker
 sim/        run_all.sh — batch xsim runner · tests/<case>/ — generated vectors
 synth/      build.tcl — OOC synth+impl for ZCU106 (XCZU7EV) · ooc.xdc · reports/
 docs/       report material
@@ -47,6 +48,17 @@ vivado -mode batch -source synth/build.tcl
 Every test prints `TB: PASS/FAIL` plus measured latency; the runner
 summarizes. Add `-testplusarg VCD` in `run_all.sh` (or run xsim manually) to
 dump waveforms.
+
+The testbench also writes the raw RTL outputs to `sim/tests/<case>/dut_out.hex`
+so they can be checked independently in MATLAB (or Octave):
+
+```bash
+matlab -batch "cd('golden'); check_all_tests"     # or:
+octave --path golden --eval check_all_tests
+```
+
+This recomputes every case with `conv_golden.m` and compares against both the
+Python golden outputs and the actual RTL outputs — a three-way cross-check.
 
 ## FPGA results (post-route, Vivado 2025.2, out-of-context, N=3, 32×32)
 

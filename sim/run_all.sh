@@ -41,7 +41,8 @@ for name in "${TESTS[@]}"; do
     [ "${GAPS:-0}" = "1" ] && extra="-testplusarg GAPS"
     "$VIV/xsim" "$snap" -R \
         -testplusarg "IMG=$d/img.hex" -testplusarg "KER=$d/kernel.hex" \
-        -testplusarg "EXP=$d/expected.hex" $extra > "$LOGS/xsim_$name.log" 2>&1
+        -testplusarg "EXP=$d/expected.hex" -testplusarg "OUT=$d/dut_out.hex" \
+        $extra > "$LOGS/xsim_$name.log" 2>&1
 
     if grep -q "TB: PASS" "$LOGS/xsim_$name.log"; then
         lat=$(grep -o "latency.*" "$LOGS/xsim_$name.log")

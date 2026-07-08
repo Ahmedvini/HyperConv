@@ -58,9 +58,13 @@ kernel bus ─► kernel_mem (4 programmable sets, registered select mux)
 
 ## 4. Verification
 
-Golden model: `golden/conv_golden.py` (numpy, bit-exact including
-saturation). Vector generator: `golden/gen_tests.py`. Self-checking TB
-compares every output pixel; 9 testcases, all **PASS** (Vivado 2025.2 xsim):
+Golden models: `golden/conv_golden.py` (numpy) and `golden/conv_golden.m`
+(MATLAB/Octave), both bit-exact including saturation. Vector generator:
+`golden/gen_tests.py`. Verification is a three-way cross-check: the
+self-checking TB compares every output pixel against the Python golden
+files, dumps the raw RTL outputs (`dut_out.hex`), and
+`golden/check_all_tests.m` independently recomputes each case in MATLAB
+and compares against both. 9 testcases, all **PASS** (Vivado 2025.2 xsim):
 
 | Testcase | Purpose | Result |
 |---|---|---|

@@ -7,6 +7,8 @@
 //
 // Plusargs:
 //   +IMG=<file> +KER=<file> +EXP=<file>   stimulus / golden files
+//   +OUT=<file>                           dump DUT outputs (s16 hex) for
+//                                         external checkers (MATLAB/Python)
 //   +GAPS                                 insert random px_valid bubbles
 //   +VCD                                  dump dump.vcd
 // Parameters N / IMG_W / IMG_H / KSEL are set per-test via xelab -generic_top.
@@ -60,9 +62,11 @@ module tb_conv_top;
     reg [PIX_W-1:0]  img_mem [0:NPIX-1];
     reg [COEF_W-1:0] ker_mem [0:N*N-1];
     reg [OUT_W-1:0]  exp_mem [0:NOUT-1];
+    reg [OUT_W-1:0]  dut_mem [0:NOUT-1];
 
-    reg [8*256-1:0] img_f, ker_f, exp_f;
+    reg [8*256-1:0] img_f, ker_f, exp_f, out_f;
     integer gaps = 0;
+    integer have_out = 0;
 
     // --------------------------------------------------------------- checker
     integer out_cnt = 0;
@@ -82,6 +86,7 @@ module tb_conv_top;
             if (first_out_cycle < 0)
                 first_out_cycle <= cycle;
             if (out_cnt < NOUT) begin
+                dut_mem[out_cnt] <= out_data;
                 if (out_data !== $signed(exp_mem[out_cnt])) begin
                     err_cnt <= err_cnt + 1;
                     if (err_cnt < 10)
@@ -141,10 +146,13 @@ module tb_conv_top;
     endtask
 
     // ------------------------------------------------------------------ main
+    integer dump_fh, dump_i;
+
     initial begin
         if (!$value$plusargs("IMG=%s", img_f)) img_f = "img.hex";
         if (!$value$plusargs("KER=%s", ker_f)) ker_f = "kernel.hex";
         if (!$value$plusargs("EXP=%s", exp_f)) exp_f = "expected.hex";
+        if ($value$plusargs("OUT=%s", out_f)) have_out = 1;
         if ($test$plusargs("GAPS")) gaps = 1;
         if ($test$plusargs("VCD")) begin
             $dumpfile("dump.vcd");
@@ -174,6 +182,13 @@ module tb_conv_top;
         // drain the pipeline
         wait (out_cnt >= NOUT);
         repeat (20) @(negedge clk);
+
+        if (have_out) begin
+            dump_fh = $fopen(out_f, "w");
+            for (dump_i = 0; dump_i < NOUT; dump_i = dump_i + 1)
+                $fdisplay(dump_fh, "%04x", dut_mem[dump_i]);
+            $fclose(dump_fh);
+        end
 
         $display("TB: outputs=%0d/%0d mismatches=%0d frame_done_pulses=%0d",
                  out_cnt, NOUT, err_cnt, done_seen);
