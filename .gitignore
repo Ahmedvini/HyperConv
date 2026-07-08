@@ -1,1 +1,19 @@
 readme.txt
+
+# Vivado / xsim build products
+sim/xsim.dir/
+sim/logs/
+synth/reports*/
+synth/*.dcp
+synth/clockInfo.txt
+*.jou
+*.log
+*.pb
+*.wdb
+*.str
+dump.vcd
+.Xil/
+
+# Python
+__pycache__/
+*.pyc
