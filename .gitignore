@@ -17,3 +17,6 @@ dump.vcd
 # Python
 __pycache__/
 *.pyc
+warnings.md
+.gitignore
+Table.xlsx
