@@ -114,6 +114,26 @@ multipliers are the default, `lutmult` forces the LUT variant). Reports
 land in `synth/reports*/`. See `docs/report_skeleton.md` for the report
 draft.
 
+### Implementation reports (ZCU106, DSP variant, post-route)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/Images/report-utilization.png" alt="Utilization report" width="100%"><br><sub><b>Utilization</b> — 263 LUT / 140 FF / 9 DSP / 0 BRAM</sub></td>
+<td width="50%"><img src="docs/Images/report-timing.png" alt="Timing summary" width="100%"><br><sub><b>Timing</b> — WNS +1.094 ns, all constraints met</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/Images/report-power.png" alt="Power report" width="100%"><br><sub><b>Power</b> — 0.621 W total, 0.029 W dynamic</sub></td>
+<td width="50%"><img src="docs/Images/report-methodology.png" alt="Methodology report" width="100%"><br><sub><b>Methodology</b> — 0 violations (clean)</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/Images/device-view.png" alt="Implemented device view" width="100%"><br><sub><b>Device view</b> — placed &amp; routed core (9 DSP48E2, 0 BRAM)</sub></td>
+<td width="50%"><img src="docs/Images/schematic.png" alt="Elaborated schematic" width="100%"><br><sub><b>Schematic</b> — line-buffer + window + MAC pipeline</sub></td>
+</tr>
+</table>
+
 ## Verification status
 
 All 9 testcases pass bit-exact against the golden model (Vivado 2025.2 xsim):
@@ -121,3 +141,24 @@ identity, hand-checked 4×4, full random 32×32 (contiguous and with random
 input stalls), Sobel X/Y edge-detection demo, ±saturation extremes, and a
 5×5-kernel run proving N parameterization. Kernel-set isolation is exercised
 in every test by loading a decoy kernel into a neighboring set.
+
+### Simulation waveforms (sobel_x, xsim)
+
+![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](docs/Images/waveform-full-frame.png)
+*Full frame — `px_valid`/`px_data` stream in, `out_valid`/`out_data` stream out at 1 pixel/cycle, `frame_done` pulses on the last output.*
+
+![Latency waveform: first pixel to first output](docs/Images/waveform-latency.png)
+*Latency — 71 cycles (710 ns @ 100 MHz) from the first pixel to the first valid output.*
+
+### Edge-detection demo (bonus)
+
+The Sobel kernels run through both the golden model and the RTL on a synthetic
+test scene (`golden/gen_tests.py` regenerates these):
+
+<table>
+<tr>
+<td><img src="sim/tests/sobel_x/scene.png" alt="Input scene" width="100%"><br><sub><b>Input scene</b></sub></td>
+<td><img src="sim/tests/sobel_x/edges.png" alt="Sobel X edges" width="100%"><br><sub><b>Sobel X</b> (vertical edges)</sub></td>
+<td><img src="sim/tests/sobel_y/edges.png" alt="Sobel Y edges" width="100%"><br><sub><b>Sobel Y</b> (horizontal edges)</sub></td>
+</tr>
+</table>
