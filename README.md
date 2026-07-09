@@ -23,11 +23,14 @@ framework convention; the golden model is bit-exact identical.
 
 ```
 rtl/        conv_top.v (top) · window_gen.v · line_buffer.v · kernel_mem.v · mac_array.v
+            selftest/selftest_top.v — on-chip self-test wrapper for a board demo
 tb/         tb_conv_top.v — self-checking, file-driven testbench
+            tb_selftest.v — simulation check for the self-test wrapper
 golden/     conv_golden.py + gen_tests.py — bit-exact Python reference & vector generator
             conv_golden.m + check_all_tests.m — MATLAB/Octave reference & RTL checker
 sim/        run_all.sh — batch xsim runner · tests/<case>/ — generated vectors
 synth/      build.tcl — batch OOC synth+impl (reports) · create_project.tcl — GUI project · ooc.xdc
+            board/ — board_top.v + board.xdc (template) + build_bitstream.tcl for a demo bitstream
 docs/       report material
 ```
 
@@ -162,3 +165,26 @@ test scene (`golden/gen_tests.py` regenerates these):
 <td><img src="sim/tests/sobel_y/edges.png" alt="Sobel Y edges" width="100%"><br><sub><b>Sobel Y</b> (horizontal edges)</sub></td>
 </tr>
 </table>
+
+## Board demo / bitstream (bonus)
+
+`rtl/selftest/selftest_top.v` is a standalone, board-independent self-test: on
+reset it programs the kernel, streams a stored 32×32 image through `conv_top`,
+compares every output to the golden result **on-chip**, and reports on LEDs —
+`led[0]`=pass, `led[1]`=fail, `led[2]`=done, `led[3]`=heartbeat. Verified in
+simulation (`tb/tb_selftest.v`: passes on correct data, asserts fail on wrong
+data) and confirmed synthesizable (384 LUT / 9 DSP / 1 BRAM).
+
+To build a bitstream, target it to a board: fill the package pins in
+`synth/board/board.xdc` (clock + reset + 4 LEDs), then
+
+```bash
+vivado -mode batch -source synth/board/build_bitstream.tcl -tclargs <part> [<testcase>]
+# e.g. ... -tclargs xc7a35tcpg236-1 sobel_x
+```
+
+This runs synth → impl → `write_bitstream`, producing
+`synth/board/build/hyperconv_selftest.bit`. The `<testcase>` (default
+`sobel_x`) selects which `sim/tests/<case>` vectors bake into the ROMs.
+`synth/board/board_top.v` handles the clock buffer (single-ended by default;
+comments show the differential-clock swap) and reset polarity.

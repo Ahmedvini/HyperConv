@@ -16,6 +16,8 @@ dump.vcd
 sim/tests/*/dut_out.hex
 vivado_proj/
 vivado_ooc/
+synth/board/build/
+*.bit
 
 # Python
 __pycache__/
