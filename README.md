@@ -47,7 +47,10 @@ vivado -mode batch -source synth/build.tcl
 
 Every test prints `TB: PASS/FAIL` plus measured latency; the runner
 summarizes. Add `-testplusarg VCD` in `run_all.sh` (or run xsim manually) to
-dump waveforms.
+dump waveforms. In the xsim GUI, add signals with relative scoping —
+`current_scope dut` then `add_wave *` — absolute paths like
+`/tb_conv_top/dut/*` break when a non-default KSEL specializes the top
+module name to `\tb_conv_top(KSEL=n)`.
 
 The testbench also writes the raw RTL outputs to `sim/tests/<case>/dut_out.hex`
 so they can be checked independently in MATLAB (or Octave):
