@@ -89,9 +89,10 @@ N=3, 32×32, 4 kernel sets), from synth/reports_zu_dsp/:
 | CLB Registers | 140 — 0.03 % |
 | DSPs | **9** (DSP48E2, one per product; hard regs absorb pipeline FFs) |
 | BRAMs | **0** (line buffers in distributed RAM, by design) |
-| Timing | WNS **+1.094 ns** at 300 MHz → met; **Fmax ≈ 446 MHz** (incl. 25%-period I/O budget; internal fabric paths alone ≈ 598 MHz) |
+| Timing | WNS **+1.094 ns** at 300 MHz → met (hold met, WHS +0.036 ns); **Fmax ≈ 446 MHz** (incl. I/O budget; internal fabric paths alone ≈ 598 MHz) |
 | Power | 0.621 W total = 0.592 W static (die leakage) + **0.029 W dynamic** |
 | Power confidence | Medium (vectorless, default toggle rates) |
+| Methodology (`report_methodology`) | **0 violations** (clean) |
 
 FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs))
     = 1 / (0.621 × (263 + 450)) = **2.26 × 10⁻³** (total power)
@@ -125,8 +126,13 @@ measured there as the justification for choosing DSP mapping.
 - Part: xczu7ev-ffvc1156-2-e (ZCU106); tool: Vivado 2025.2; OOC flow
   (accelerator is a core; pin/board integration out of scope)
 - Clock target 300 MHz; power is vectorless estimate at default toggle rates
-- Core ports constrained with a 25%-of-period input/output delay budget
-  (OOC methodology requirement, TIMING-18); port paths are timed against it
+- Core ports constrained with an input/output delay budget of 25% of the
+  period (max/setup) and 10% (min/hold), so port paths are timed (TIMING-18)
+  and the max/min corners are distinguished (XDCH-2). `report_methodology`
+  is clean (0 violations); `report_timing_summary` meets setup and hold
+- SSN (simultaneous switching noise) is reported as "No Analysis / 0 ports"
+  — the OOC core has no package-pin assignments, so SSN is not applicable
+  (it would only apply to a pin-constrained board wrapper)
 - Pixels stream row-major from the testbench (no bus interface); kernel
   loaded via dedicated write port before the frame
 - k_sel stable ≥1 cycle before first pixel of a frame (registered mux)

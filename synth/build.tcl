@@ -30,11 +30,16 @@ read_verilog [glob $root/rtl/*.v]
 set xdc $reports/ooc_gen.xdc
 set fh [open $xdc w]
 puts $fh "create_clock -period $clk_ns -name clk \[get_ports clk\]"
-# I/O delay budget for the OOC core (25% of the period each side) so timing
-# analysis covers port paths and TIMING-18 methodology checks are satisfied
-set tio [format %.3f [expr {$clk_ns * 0.25}]]
-puts $fh "set_input_delay  -clock clk $tio \[get_ports -filter {DIRECTION == IN && NAME != clk}\]"
-puts $fh "set_output_delay -clock clk $tio \[all_outputs\]"
+# I/O delay budget for the OOC core so timing analysis covers port paths
+# (TIMING-18). Distinct max (setup, 25% of period) and min (hold, 10%)
+# values describe a data-valid window and satisfy the XDCH-2 check.
+set tmax [format %.3f [expr {$clk_ns * 0.25}]]
+set tmin [format %.3f [expr {$clk_ns * 0.10}]]
+puts $fh "set inputs \[get_ports -filter {DIRECTION == IN && NAME != clk}\]"
+puts $fh "set_input_delay  -clock clk -max $tmax \$inputs"
+puts $fh "set_input_delay  -clock clk -min $tmin \$inputs"
+puts $fh "set_output_delay -clock clk -max $tmax \[all_outputs\]"
+puts $fh "set_output_delay -clock clk -min $tmin \[all_outputs\]"
 close $fh
 read_xdc -mode out_of_context $xdc
 

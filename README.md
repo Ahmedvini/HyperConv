@@ -27,7 +27,7 @@ tb/         tb_conv_top.v — self-checking, file-driven testbench
 golden/     conv_golden.py + gen_tests.py — bit-exact Python reference & vector generator
             conv_golden.m + check_all_tests.m — MATLAB/Octave reference & RTL checker
 sim/        run_all.sh — batch xsim runner · tests/<case>/ — generated vectors
-synth/      build.tcl — OOC synth+impl for ZCU106 (XCZU7EV) · ooc.xdc · reports/
+synth/      build.tcl — batch OOC synth+impl (reports) · create_project.tcl — GUI project · ooc.xdc
 docs/       report material
 ```
 
@@ -44,6 +44,31 @@ sim/run_all.sh random_n5        # or a single testcase
 # synthesis + implementation reports (utilization / timing / power):
 vivado -mode batch -source synth/build.tcl
 ```
+
+**Always run synthesis through `synth/build.tcl`** — it applies `synth/ooc.xdc`,
+which defines the clock (`create_clock -period 3.333 -name clk [get_ports clk]`)
+and the I/O delay budget. Synthesizing in the GUI without reading that XDC
+leaves the `clk` port unconstrained, so `report_methodology` floods with
+`TIMING-17` "clock pin not reached by a timing clock" criticals — one per
+sequential cell (264 for this design). They are a missing-constraint artifact,
+not a design bug; define the clock and they vanish:
+
+```tcl
+create_clock -period 3.333 -name clk [get_ports clk]
+report_methodology
+```
+
+For an interactive GUI project (Flow Navigator, saved runs) instead of the
+batch flow, source the project generator once in the Vivado Tcl Console, then
+use **Run Synthesis** / **Run Implementation**:
+
+```tcl
+cd synth ; source create_project.tcl
+```
+
+It builds an out-of-context project at `vivado_ooc/` (gitignored) reading the
+same `ooc.xdc`, so its reports match the batch flow (WNS +1.094 ns, 0
+methodology violations).
 
 Every test prints `TB: PASS/FAIL` plus measured latency; the runner
 summarizes. Add `-testplusarg VCD` in `run_all.sh` (or run xsim manually) to
@@ -79,9 +104,9 @@ pipeline FFs and shorten the multiply path):
 ZCU106 = XCZU7EV-2 (user board); Z7020 = XC7Z020-1 (PYNQ-Z2/Zybo class).
 The FoM gap between parts is almost entirely static power — the design
 itself burns ≤43 mW.
-¹ Internal fabric paths; with the 25%-period I/O delay budget now in the
-constraints the reported WNS is +1.094 ns @ 300 MHz (Fmax ≈ 446 MHz).
-The methodology report is clean: 0 SYNTH-9, 0 TIMING-18.
+¹ Internal fabric paths; with the I/O delay budget in the constraints the
+reported WNS is +1.094 ns @ 300 MHz (Fmax ≈ 446 MHz), hold met (WHS +0.036).
+`report_methodology` is fully clean — 0 violations.
 
 Reproduce with `vivado -mode batch -source synth/build.tcl -tclargs
 <part> <clk_ns> <tag> [lutmult]` (no tclargs = ZCU106 @ 300 MHz; DSP
