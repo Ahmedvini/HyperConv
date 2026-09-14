@@ -22,12 +22,6 @@ set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS33} [get_ports {led[1]}]
 set_property -dict {PACKAGE_PIN N16 IOSTANDARD LVCMOS33} [get_ports {led[2]}]
 set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {led[3]}]
 
-set_load 5.000 [all_outputs]
-set_property LOAD 5 [get_ports {led[0]}]
-set_property LOAD 5 [get_ports {led[1]}]
-set_property LOAD 5 [get_ports {led[2]}]
-set_property LOAD 5 [get_ports {led[3]}]
-
 # ---- quasi-static I/O -------------------------------------------------------
 # The reset button and the status LEDs change at human speed; they are not
 # timed paths. False-path them so check_timing reports no unconstrained I/O.
