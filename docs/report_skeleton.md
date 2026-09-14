@@ -135,6 +135,11 @@ variant is measured there as the justification for choosing DSP mapping.
 - SSN (simultaneous switching noise) is reported as "No Analysis / 0 ports"
   — the OOC core has no package-pin assignments, so SSN is not applicable
   (it would only apply to a pin-constrained board wrapper)
+- Route-status RTSTAT-10 ("nets with no routable loads": out_data, frame_done)
+  and the ZPS7-1 DRC ("PS7 block required") are OOC / PL-only artifacts:
+  output ports are virtual (no IO buffers to route to) and the Zynq PS7 is
+  deliberately unused. 0 actual routing errors (469/469 routable nets fully
+  routed); the board wrapper adds real pins and, where needed, the PS7
 - Pixels stream row-major from the testbench (no bus interface); kernel
   loaded via dedicated write port before the frame
 - k_sel stable ≥1 cycle before first pixel of a frame (registered mux)
