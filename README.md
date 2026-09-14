@@ -12,6 +12,7 @@ accelerator for grayscale images / single-channel feature maps.
 | Coefficients | 8-bit signed, runtime-programmable, **4 selectable kernel sets** |
 | Input | ≥32×32 (parameter), 8-bit unsigned pixels, streamed row-major |
 | Output | 16-bit signed, saturated, "valid" convolution ((H−N+1)×(W−N+1)) |
+| Activation | optional ReLU (parameter `RELU=1`): negatives clamp to 0, +7 LUTs |
 | Throughput | **1 output pixel/cycle** in steady state (fully pipelined) |
 | Latency | (N−1)·IMG_W + N pixels to first window + 6 pipeline cycles (72 total for 32×32, N=3) |
 | BRAM | 0 — line buffers use distributed (LUT) RAM at these sizes |
@@ -140,10 +141,12 @@ draft.
 
 ## Verification status
 
-All 9 testcases pass bit-exact against the golden model (Vivado 2025.2 xsim):
+All 11 testcases pass bit-exact against the golden model (Vivado 2025.2 xsim):
 identity, hand-checked 4×4, full random 32×32 (contiguous and with random
-input stalls), Sobel X/Y edge-detection demo, ±saturation extremes, and a
-5×5-kernel run proving N parameterization. Kernel-set isolation is exercised
+input stalls), Sobel X/Y edge-detection demo, ±saturation extremes, a
+5×5-kernel run proving N parameterization, and two ReLU-activation runs
+(mixed-sign outputs clamp at 0; the all-negative case yields an all-zero
+frame). Kernel-set isolation is exercised
 in every test by loading a decoy kernel into a neighboring set.
 
 ### Simulation waveforms (sobel_x, xsim)

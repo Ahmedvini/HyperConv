@@ -25,7 +25,8 @@ module mac_array #(
     parameter N      = 3,
     parameter PIX_W  = 8,
     parameter COEF_W = 8,
-    parameter OUT_W  = 16
+    parameter OUT_W  = 16,
+    parameter RELU   = 0               // 1 = ReLU activation: clamp negatives to 0
 ) (
     input  wire                    clk,
     input  wire                    rst_n,
@@ -111,9 +112,13 @@ module mac_array #(
     end
 
     // ---------------------------------------------------- stage 5: saturation
+    // With RELU=1 the output is max(0, saturated result): positive overflow
+    // still saturates to +SAT_MAX, everything negative (incl. SAT_MIN)
+    // clamps to 0. Same register stage, so latency is unchanged.
     always @(posedge clk) begin
         if (v4)
             out_data <= (acc > SAT_MAX) ? SAT_MAX[OUT_W-1:0] :
+                        (RELU && (acc < 0)) ? {OUT_W{1'b0}} :
                         (acc < SAT_MIN) ? SAT_MIN[OUT_W-1:0] :
                                           acc[OUT_W-1:0];
     end

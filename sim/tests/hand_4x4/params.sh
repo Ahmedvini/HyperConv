@@ -3,3 +3,4 @@ W=4
 H=4
 KSEL=0
 GAPS=0
+RELU=0

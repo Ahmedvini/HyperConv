@@ -9,12 +9,16 @@
 Streaming line-buffer + sliding-window architecture, fully pipelined at
 **1 output pixel per cycle** (bonus feature):
 
+![Block diagram](Images/block-diagram.png)
+*HyperConv datapath: pixel stream → window generation (line buffers +
+window registers) → 6-stage MAC pipeline → saturated s16 result stream.*
+
 ```
 px stream ──► window_gen ──────────► mac_array ──► out stream (s16, saturated)
-              │ N−1 line buffers      │ N² multipliers
-              │ (distributed RAM)     │ two-stage adder tree
-              │ N×N window regs       │ saturation stage
-              └ position counters     └ 4-stage pipeline
+               │ N−1 line buffers      │ N² multipliers
+               │ (distributed RAM)     │ two-stage adder tree
+               │ N×N window regs       │ saturation stage
+               └ position counters     └ 6-stage pipeline
 kernel bus ─► kernel_mem (4 programmable sets, registered select mux)
 ```
 
@@ -54,7 +58,69 @@ kernel bus ─► kernel_mem (4 programmable sets, registered select mux)
 - `mac_array.v` — N² multipliers, two-stage adder tree (partial sums of 3,
   then final sum — keeps logic depth low on slow fabrics), saturation;
   valid-gated data registers for power
-- Pipeline latency: 5 cycles (window reg → product → partial → sum → saturate)
+- Pipeline latency: 6 cycles (window reg → product (MREG) → product reg
+  (PREG) → partial → sum → saturate)
+
+### 3.1 Memory organization
+
+The design uses three small memories, all mapped to LUT RAM (distributed
+RAM) — **0 BRAMs** at the default 32-px configuration, avoiding the
+100× BRAM penalty in the FoM:
+
+| Memory | Size (default) | Primitive | Ports | Why |
+|---|---|---|---|---|
+| Kernel sets (`kernel_mem.v`) | 4 sets × 9 × 8 b = 288 b | RAM64M | 1 write (programming) + 4 read (one per row of the window) | read every cycle after one-cycle registered select; RAM64M gives 4 reads/LUT-pair |
+| Line buffers (`line_buffer.v` ×N−1) | 2 × 32 × 8 b = 512 b | RAM32X1S | 1 write + 1 async read | depth = IMG_W; async read keeps the window shifter in one cycle |
+| Window registers | 9 × 8 b | FFs | — | the N×N sliding window itself is a register matrix, not a memory |
+
+Scaling: each line buffer is IMG_W deep × PIX_W wide; for IMG_W ≤ 64 the
+16:1 LUT ratio keeps them in one LUT-pair per bit. Beyond ~128 px a BRAM
+per line buffer becomes the natural mapping (and the FoM would then count
+it); the parameterization allows that without RTL change.
+
+### 3.2 Datapath control: no FSM by design
+
+The accelerator datapath is **free-running**: it has no LOAD / COMPUTE /
+WRITE FSM. Control is reduced to a *valid-bit pipeline*:
+
+- `px_valid` gates every data register stage; when low, the stage holds
+  (bubbles propagate down the valid chain, data does not switch — power
+  saving for free).
+- Window validity (`win_valid`) is derived **positionally** from the
+  pixel counters (row ≥ N−1 and col ≥ N−1): no flush or drain state is
+  needed between frames, and frames can stream back-to-back.
+- `frame_done` is a one-cycle pulse generated when the output counter
+  wraps — pure bookkeeping, no state machine.
+
+This is a deliberate simplification over the classic convolution FSM: the
+only sequential "control" is the (IMG_W, IMG_H) position counter pair and
+the 6-bit valid shift chain. Arbitrary input stalls are tolerated
+(verified by the `random_n3_gaps` testcase).
+
+### 3.3 Self-test wrapper FSM (board demo)
+
+The board demo wrapper (`rtl/selftest/selftest_top.v`) *does* use a
+6-state FSM to sequence the standalone demo — program, stream, compare:
+
+```
+        ┌────────┐  kernel ROM    ┌────────┐  settle 1 cy ┌─────────┐
+ ──►    │ S_IDLE │ ─────────────► │ S_LOADK│ ───────────► │  S_SETK │
+        └────────┘   idx 0..N²−1  └────────┘              └─────────┘
+                                                           │ set k_sel
+                              last output (frame_done)     ▼
+        ┌────────┐  all 900 outputs  ┌────────┐  1 px/cycle ┌────────┐
+   ┌──► │ S_DONE │ ◄──────────────── │ S_WAIT │ ◄────────── │S_STREAM│
+   │    └────────┘    compared       └────────┘             └────────┘
+   └── LEDs: pass/fail/done latched; heartbeat free-runs
+```
+
+- `S_LOADK`: writes the 9 coefficients of kernel set 0 through the normal
+  programming port (also exercises the write path on silicon).
+- `S_SETK`: one idle cycle for the registered kernel-select mux.
+- `S_STREAM`: streams the stored 32×32 image at 1 px/cycle.
+- `S_WAIT`: drains the pipeline until `frame_done`; on-chip comparison
+  runs in parallel whenever `out_valid` fires (mismatch latches `fail`).
+- `S_DONE`: latches pass/fail/done LEDs.
 
 ## 4. Verification
 
@@ -64,7 +130,7 @@ Golden models: `golden/conv_golden.py` (numpy) and `golden/conv_golden.m`
 self-checking TB compares every output pixel against the Python golden
 files, dumps the raw RTL outputs (`dut_out.hex`), and
 `golden/check_all_tests.m` independently recomputes each case in MATLAB
-and compares against both. 9 testcases, all **PASS** (Vivado 2025.2 xsim):
+and compares against both. 11 testcases, all **PASS** (Vivado 2025.2 xsim):
 
 | Testcase | Purpose | Result |
 |---|---|---|
@@ -75,8 +141,16 @@ and compares against both. 9 testcases, all **PASS** (Vivado 2025.2 xsim):
 | sobel_x / sobel_y | Edge-detection demo (bonus) | PASS |
 | saturate_max / min | ±saturation extremes | PASS |
 | random_n5 | 5×5 kernel (N parameterization) | PASS |
+| relu_random | ReLU activation (bonus): mixed-sign outputs clamp at 0 | PASS |
+| relu_neg | ReLU: all-negative case → all-zero output frame | PASS |
 
-TODO: waveform screenshots (xsim `+VCD` or Vivado GUI on the routed dcp).
+### Simulation waveforms (sobel_x, xsim)
+
+![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](Images/waveform-full-frame.png)
+*Full frame — `px_valid`/`px_data` stream in, `out_valid`/`out_data` stream out at 1 pixel/cycle, `frame_done` pulses on the last output.*
+
+![Latency waveform: first pixel to first output](Images/waveform-latency.png)
+*Latency — 72 cycles (720 ns @ 100 MHz) from the first pixel to the first valid output.*
 
 ## 5. FPGA results (PYNQ-Z2, xc7z020clg400-1, Vivado 2025.2, OOC, 200 MHz target)
 
@@ -118,7 +192,7 @@ variant is measured there as the justification for choosing DSP mapping.
 | FPGA utilization | LUTs, FFs, DSPs, BRAMs | 248 / 141 / 9 / 0 | | PYNQ-Z2, post-route, DSP variant |
 | Maximum frequency | — | 219 (WNS +0.441 @ 200 MHz) | MHz | timing met, incl. I/O delay budget |
 | Power estimate | — | 135 (32 dynamic + 103 static) | mW | report_power, vectorless |
-| Verification status | Pass/Fail + cases | PASS, 9/9 cases | | bit-exact vs golden |
+| Verification status | Pass/Fail + cases | PASS, 11/11 cases | | bit-exact vs golden, incl. ReLU |
 | FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 10.6×10⁻³ | | PYNQ-Z2; 2.26×10⁻³ on ZCU106 (§8) |
 
 ## 7. Assumptions (state all)

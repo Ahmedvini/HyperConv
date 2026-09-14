@@ -8,10 +8,11 @@
 //   * output: (IMG_H-N+1) x (IMG_W-N+1) signed OUT_W-bit results, saturated,
 //             1 output pixel/cycle in steady state (fully pipelined)
 //   * KERNEL_SETS runtime-programmable coefficient sets, selected by k_sel
+//   * optional ReLU activation (parameter RELU = 1): negatives clamp to 0
 //   * "valid" convolution (no padding); frames may stream back-to-back
 //
 // Latency from a pixel entering to its window's result on out_data:
-//   1 (window regs) + 4 (MAC pipeline) = 5 cycles.
+//   1 (window regs) + 5 (MAC pipeline) = 6 cycles.
 // ----------------------------------------------------------------------------
 `timescale 1ns / 1ps
 
@@ -23,6 +24,7 @@ module conv_top #(
     parameter PIX_W       = 8,    // pixel width (unsigned)
     parameter COEF_W      = 8,    // coefficient width (signed)
     parameter OUT_W       = 16,   // output width (signed, saturated)
+    parameter RELU        = 0,    // 1 = ReLU activation (negatives -> 0)
     // derived - do not override
     parameter SET_AW = (KERNEL_SETS > 1) ? $clog2(KERNEL_SETS) : 1,
     parameter IDX_AW = (N > 1) ? $clog2(N*N) : 1
@@ -78,7 +80,7 @@ module conv_top #(
     );
 
     mac_array #(
-        .N(N), .PIX_W(PIX_W), .COEF_W(COEF_W), .OUT_W(OUT_W)
+        .N(N), .PIX_W(PIX_W), .COEF_W(COEF_W), .OUT_W(OUT_W), .RELU(RELU)
     ) u_mac (
         .clk       (clk),
         .rst_n     (rst_n),

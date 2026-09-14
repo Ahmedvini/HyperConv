@@ -41,21 +41,22 @@ def edge_scene(h=32, w=32):
     return img
 
 
-def emit(name, img, ker, ksel=0, gaps=0):
+def emit(name, img, ker, ksel=0, gaps=0, relu=0):
     d = os.path.join(TESTS, name)
     os.makedirs(d, exist_ok=True)
     img = np.asarray(img, dtype=int)
     ker = np.asarray(ker, dtype=int)
-    exp = conv2d_sat(img, ker)
+    exp = conv2d_sat(img, ker, relu=bool(relu))
     write_hex_u8(os.path.join(d, "img.hex"), img)
     write_hex_s8(os.path.join(d, "kernel.hex"), ker)
     write_hex_s16(os.path.join(d, "expected.hex"), exp)
     h, w = img.shape
     n = ker.shape[0]
     with open(os.path.join(d, "params.sh"), "w") as f:
-        f.write(f"N={n}\nW={w}\nH={h}\nKSEL={ksel}\nGAPS={gaps}\n")
+        f.write(f"N={n}\nW={w}\nH={h}\nKSEL={ksel}\nGAPS={gaps}\nRELU={relu}\n")
     print(f"  {name:16s} img {h}x{w}  N={n}  out {h-n+1}x{w-n+1}"
-          f"  range [{exp.min()}, {exp.max()}]  ksel={ksel} gaps={gaps}")
+          f"  range [{exp.min()}, {exp.max()}]  ksel={ksel} gaps={gaps}"
+          f"{' relu' if relu else ''}")
     return exp
 
 
@@ -84,6 +85,11 @@ def main():
     emit("saturate_min", np.full((32, 32), 255), np.full((3, 3), -128))
 
     emit("random_n5", rng.integers(0, 256, (32, 32)), rng.integers(-128, 128, (5, 5)))
+
+    # ReLU activation variants (bonus): mixed-sign outputs must clamp at 0,
+    # and the all-negative case must produce an all-zero frame.
+    emit("relu_random", img32, rng.integers(-128, 128, (3, 3)), ksel=1, relu=1)
+    emit("relu_neg", np.full((32, 32), 255), np.full((3, 3), -128), relu=1)
 
     # Optional PNG dumps of the edge-detection demo for the report.
     try:

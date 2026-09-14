@@ -3,3 +3,4 @@ W=32
 H=32
 KSEL=2
 GAPS=1
+RELU=0

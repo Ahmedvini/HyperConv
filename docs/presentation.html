@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HyperConv — IEEE SSCS Egypt 2026</title>
+<style>
+  :root { --navy:#1a365d; --accent:#c55a11; --light:#f4f6f8; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:'Segoe UI', system-ui, sans-serif; background:#525659; }
+  .slide {
+    width:1280px; height:720px; background:white; margin:18px auto;
+    padding:56px 72px; position:relative; page-break-after:always;
+    box-shadow:0 2px 14px rgba(0,0,0,.45); overflow:hidden;
+  }
+  @media print {
+    body { background:white; }
+    .slide { margin:0; box-shadow:none; width:100%; height:100vh; }
+  }
+  h1 { font-size:52px; color:var(--navy); }
+  h2 { font-size:38px; color:var(--navy); border-bottom:4px solid var(--accent);
+       padding-bottom:10px; margin-bottom:28px; }
+  h3 { font-size:24px; color:var(--accent); margin:18px 0 8px; }
+  p, li { font-size:22px; line-height:1.55; color:#222; }
+  ul, ol { margin-left:32px; }
+  table { border-collapse:collapse; width:100%; font-size:21px; margin-top:12px; }
+  th, td { border:1px solid #999; padding:8px 14px; text-align:left; }
+  th { background:var(--navy); color:white; }
+  tr:nth-child(even) td { background:var(--light); }
+  .footer { position:absolute; bottom:24px; left:72px; right:72px;
+            display:flex; justify-content:space-between; font-size:16px;
+            color:#777; border-top:1px solid #ddd; padding-top:8px; }
+  .title-slide { display:flex; flex-direction:column; justify-content:center;
+                 height:100%; }
+  .title-slide .kicker { font-size:26px; color:var(--accent);
+                         letter-spacing:2px; text-transform:uppercase; }
+  .title-slide h1 { font-size:72px; margin:12px 0; }
+  .title-slide .sub { font-size:30px; color:#444; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:40px; }
+  .big { font-size:64px; font-weight:700; color:var(--accent); }
+  .metric { text-align:center; padding:14px; }
+  .metric .lbl { font-size:18px; color:#555; }
+  .kpi { display:grid; grid-template-columns:repeat(4,1fr); gap:24px;
+         margin-top:24px; }
+  img { max-width:100%; max-height:420px; display:block; margin:8px auto;
+        border:1px solid #ccc; }
+  .note { font-size:18px; color:#666; font-style:italic; margin-top:10px; }
+  code { font-family:Consolas, monospace; background:var(--light);
+         padding:1px 6px; border-radius:3px; font-size:.9em; }
+</style>
+</head>
+<body>
+
+<!-- 1 -------------------------------------------------------------- title -->
+<section class="slide title-slide">
+  <div class="kicker">IEEE SSCS Egypt Chapter — 2026 Student Design Competition</div>
+  <h1>HyperConv</h1>
+  <div class="sub">A 1-pixel-per-cycle N×N CNN convolution accelerator<br>
+  for Edge-AI vision — on the PYNQ-Z2 (Zynq-7020)</div>
+  <div style="margin-top:48px; color:#666; font-size:22px">
+    Fully pipelined &middot; 4 programmable kernel sets &middot; ReLU &middot;
+    bit-exact vs dual golden models &middot; all 5 bonus items
+  </div>
+  <div class="footer"><span>HyperConv</span><span>1</span></div>
+</section>
+
+<!-- 2 ------------------------------------------------------------- specs -->
+<section class="slide">
+  <h2>Specifications — all mandatory items met</h2>
+  <table>
+    <tr><th>Requirement</th><th>Spec</th><th>HyperConv</th></tr>
+    <tr><td>Input image</td><td>&ge; 32×32 grayscale</td><td>parameterizable, default 32×32</td></tr>
+    <tr><td>Input precision</td><td>fixed-point unsigned (justify)</td><td>UQ8.0 — native grayscale range</td></tr>
+    <tr><td>Kernel</td><td>N×N, programmable, stride 1</td><td>N parameter (3,5 verified), runtime write port, 4 sets</td></tr>
+    <tr><td>Kernel precision</td><td>8-bit signed</td><td>SQ8.0</td></tr>
+    <tr><td>Output precision</td><td>&ge; 16-bit signed, overflow policy</td><td>SQ16.0 saturated; 20-bit full-precision accumulator → no intermediate overflow</td></tr>
+    <tr><td>ReLU (bonus)</td><td>optional</td><td>parameter <code>RELU=1</code>: negatives → 0, +7 LUTs, 0 latency</td></tr>
+    <tr><td>Verification</td><td>golden model, multiple cases</td><td>Python + MATLAB golden, 11/11 bit-exact</td></tr>
+  </table>
+  <div class="footer"><span>HyperConv</span><span>2</span></div>
+</section>
+
+<!-- 3 --------------------------------------------------------- architecture -->
+<section class="slide">
+  <h2>Architecture — streaming line buffer + sliding window</h2>
+  <img src="../docs/Images/block-diagram.png" alt="block diagram" style="max-height:400px">
+  <ul>
+    <li><b>No datapath FSM</b>: position counters + a 6-bit valid chain;
+        arbitrary input stalls tolerated, back-to-back frames</li>
+    <li><b>0 BRAM</b>: line buffers and kernel sets map to LUT RAM at these sizes</li>
+  </ul>
+  <div class="footer"><span>HyperConv</span><span>3</span></div>
+</section>
+
+<!-- 4 ------------------------------------------------------------ pipeline -->
+<section class="slide">
+  <h2>Datapath: 6-stage MAC pipeline, 1 output/cycle</h2>
+  <div class="cols">
+    <div>
+      <h3>Pipeline (72-cycle latency)</h3>
+      <ol>
+        <li>window registers (N×N)</li>
+        <li>N² products → DSP48 <b>MREG</b></li>
+        <li>product register → DSP48 <b>PREG</b></li>
+        <li>partial sums of 3</li>
+        <li>final sum (20-bit, exact)</li>
+        <li>saturate / ReLU → s16</li>
+      </ol>
+      <h3>Fixed-point (no intermediate overflow)</h3>
+      <p style="font-size:19px">u8 × s8 → s16 product (−32640…+32385)<br>
+      3 products → 18 b partial &middot; 3 partials → 20 b accumulator<br>
+      <b>only</b> the final saturate to s16 loses range — by design</p>
+    </div>
+    <div>
+      <img src="../docs/Images/waveform-latency.png" alt="latency waveform"
+           style="max-height:300px">
+      <p class="note">sobel_x @ 100 MHz: first pixel → first result = 72 cycles</p>
+    </div>
+  </div>
+  <div class="footer"><span>HyperConv</span><span>4</span></div>
+</section>
+
+<!-- 5 ------------------------------------------------------- verification -->
+<section class="slide">
+  <h2>Verification — three-way bit-exact cross-check</h2>
+  <div class="cols">
+    <div>
+      <h3>Golden models</h3>
+      <ul>
+        <li><code>conv_golden.py</code> (numpy) — generates vectors</li>
+        <li><code>conv_golden.m</code> (MATLAB/Octave) — recomputes</li>
+        <li>self-checking TB compares every pixel; dumps raw outputs</li>
+      </ul>
+      <h3>11/11 testcases PASS</h3>
+      <ul style="font-size:19px">
+        <li>identity, hand-4×4, random 32×32 (± stalls)</li>
+        <li>Sobel X/Y edge detection, ±saturation extremes</li>
+        <li>5×5 kernel (N parameterization)</li>
+        <li>ReLU random + all-negative (all-zero frame)</li>
+        <li>decoy kernel in neighbor set (set isolation)</li>
+      </ul>
+    </div>
+    <div>
+      <img src="../docs/Images/waveform-full-frame.png"
+           alt="full frame waveform" style="max-height:300px">
+      <p class="note">1 px/cycle streaming; frame_done on the last of 900 outputs</p>
+    </div>
+  </div>
+  <div class="footer"><span>HyperConv</span><span>5</span></div>
+</section>
+
+<!-- 6 ------------------------------------------------------------- results -->
+<section class="slide">
+  <h2>FPGA results — PYNQ-Z2 (xc7z020clg400-1), post-route</h2>
+  <div class="kpi">
+    <div class="metric"><div class="big">1</div><div class="lbl">output px / cycle<br>(throughput)</div></div>
+    <div class="metric"><div class="big">219</div><div class="lbl">MHz Fmax<br>(WNS +0.441 @ 200 MHz)</div></div>
+    <div class="metric"><div class="big">248</div><div class="lbl">LUTs &middot; 141 FFs<br>9 DSPs &middot; 0 BRAM</div></div>
+    <div class="metric"><div class="big">135</div><div class="lbl">mW total<br>(32 mW dynamic)</div></div>
+  </div>
+  <table style="margin-top:28px">
+    <tr><th>Variant</th><th>LUT/FF/DSP</th><th>Fmax</th><th>Power (dyn)</th><th>FoM</th></tr>
+    <tr><td><b>DSP mult (chosen)</b></td><td><b>248 / 141 / 9</b></td><td><b>219 MHz</b></td><td><b>0.135 W (32 mW)</b></td><td><b>10.6×10⁻³</b></td></tr>
+    <tr><td>LUT mult (comparison)</td><td>858 / 562 / 0</td><td>168 MHz ✗</td><td>0.152 W (48 mW)</td><td>7.67×10⁻³</td></tr>
+  </table>
+  <p class="note">FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs)) — DSP mapping wins every axis; timing, hold and methodology (0 violations) all clean.</p>
+  <div class="footer"><span>HyperConv</span><span>6</span></div>
+</section>
+
+<!-- 7 ----------------------------------------------------------- tradeoffs -->
+<section class="slide">
+  <h2>Design tradeoffs — measured, not guessed</h2>
+  <ul>
+    <li><b>Two-stage adder tree</b>: splitting the 9-input tree into
+        partial-sums-of-3 + final sum raised Fmax 405 → 479 MHz (ZCU106) and
+        <i>reduced</i> LUTs — shallower carry chains pack better.</li>
+    <li><b>DSP vs LUT multipliers</b>: LUT mult misses 200 MHz on Z-7020
+        (multiply itself is the critical path). DSP mapping saves ~560 LUTs,
+        absorbs pipeline FFs into MREG/PREG (562→141 FFs), and wins FoM.</li>
+    <li><b>Distributed RAM line buffers</b>: avoid the 100× BRAM FoM penalty
+        at 32-px rows; natural BRAM mapping beyond ~128 px, no RTL change.</li>
+    <li><b>Valid-gated pipeline</b>: bubbles hold data (switching power ↓),
+        valid bits free-run — stall tolerance is free.</li>
+    <li><b>Part choice dominates FoM via static power</b>: same RTL scores
+        10.6×10⁻³ on Z-7020 vs 2.26×10⁻³ on ZU7EV (0.5 W die leakage).</li>
+  </ul>
+  <div class="footer"><span>HyperConv</span><span>7</span></div>
+</section>
+
+<!-- 8 ------------------------------------------------------------- bonus -->
+<section class="slide">
+  <h2>All five bonus items delivered</h2>
+  <table>
+    <tr><th>Bonus</th><th>Implementation</th><th>Status</th></tr>
+    <tr><td>Board demonstration</td><td>Standalone self-test bitstream on PYNQ-Z2: on-chip comparison, LED verdict (pass/fail/done/heartbeat)</td><td>✔ built, timing met</td></tr>
+    <tr><td>1 output px / cycle</td><td>Fully pipelined from the ground up</td><td>✔</td></tr>
+    <tr><td>Multiple kernels</td><td>4 runtime-programmable kernel sets, registered select</td><td>✔</td></tr>
+    <tr><td>ReLU activation</td><td>Final-stage clamp, +7 LUTs, zero latency cost</td><td>✔ 2 dedicated testcases</td></tr>
+    <tr><td>Edge-detection demo</td><td>Sobel X/Y on synthetic scene, golden-checked PNGs</td><td>✔</td></tr>
+  </table>
+  <h3 style="margin-top:26px">Deliverables package</h3>
+  <p>RTL (5 modules + selftest) &middot; self-checking TB &middot; Python + MATLAB
+  golden models &middot; 11 testcase vector sets with expected outputs &middot;
+  post-route utilization/timing/power/methodology reports &middot; routed
+  checkpoints &middot; board bitstream &middot; this report + slides.</p>
+  <div class="footer"><span>HyperConv</span><span>8</span></div>
+</section>
+
+</body>
+</html>

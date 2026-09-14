@@ -18,10 +18,12 @@ OUT_MIN = -(1 << (OUT_BITS - 1))
 OUT_MAX = (1 << (OUT_BITS - 1)) - 1
 
 
-def conv2d_sat(img, kernel):
+def conv2d_sat(img, kernel, relu=False):
     """Golden convolution. img: HxW uint8-range ints, kernel: NxN int8-range ints.
 
     Returns (H-N+1) x (W-N+1) int32 array saturated to signed 16-bit.
+    With relu=True, negatives clamp to 0 (after saturation), matching the
+    RTL's RELU=1 configuration.
     """
     img = np.asarray(img, dtype=np.int64)
     ker = np.asarray(kernel, dtype=np.int64)
@@ -35,7 +37,10 @@ def conv2d_sat(img, kernel):
     for r in range(oh):
         for c in range(ow):
             out[r, c] = int(np.sum(img[r:r + n, c:c + n] * ker))
-    return np.clip(out, OUT_MIN, OUT_MAX).astype(np.int32)
+    out = np.clip(out, OUT_MIN, OUT_MAX)
+    if relu:
+        out = np.maximum(out, 0)
+    return out.astype(np.int32)
 
 
 # ---------------------------------------------------------------- hex file I/O

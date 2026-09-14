@@ -28,12 +28,13 @@ pass=0; fail=0; failed=""
 for name in "${TESTS[@]}"; do
     d="tests/$name"
     # shellcheck disable=SC1091
-    source "$d/params.sh"    # sets N W H KSEL GAPS
+    source "$d/params.sh"    # sets N W H KSEL GAPS RELU
     snap="tb_$name"
 
     "$VIV/xelab" tb_conv_top -s "$snap" --incr \
         -generic_top "N=$N" -generic_top "IMG_W=$W" -generic_top "IMG_H=$H" \
-        -generic_top "KSEL=$KSEL" > "$LOGS/xelab_$name.log" 2>&1 || {
+        -generic_top "KSEL=$KSEL" -generic_top "RELU=${RELU:-0}" \
+        > "$LOGS/xelab_$name.log" 2>&1 || {
             echo "ELAB FAILED: $name - see $LOGS/xelab_$name.log"
             tail -20 "$LOGS/xelab_$name.log"; fail=$((fail+1)); failed="$failed $name"; continue; }
 

@@ -29,7 +29,8 @@ for i = 1:numel(list)
     exp = to_matrix(read_hex(fullfile(d, 'expected.hex'), 16, true), ...
                     p.H - p.N + 1, p.W - p.N + 1);
 
-    gold     = double(conv_golden(img, ker));
+    relu     = isfield(p, 'RELU') && p.RELU == 1;
+    gold     = double(conv_golden(img, ker, relu));
     ok_model = isequal(gold, exp);
 
     dut_file = fullfile(d, 'dut_out.hex');

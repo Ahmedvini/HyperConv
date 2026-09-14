@@ -22,6 +22,7 @@ module tb_conv_top;
     parameter IMG_H       = 32;
     parameter KERNEL_SETS = 4;
     parameter KSEL        = 0;    // kernel set used by this test
+    parameter RELU        = 0;    // 1 = DUT built with ReLU activation
 
     localparam PIX_W  = 8;
     localparam COEF_W = 8;
@@ -49,7 +50,7 @@ module tb_conv_top;
 
     conv_top #(
         .N(N), .IMG_W(IMG_W), .IMG_H(IMG_H), .KERNEL_SETS(KERNEL_SETS),
-        .PIX_W(PIX_W), .COEF_W(COEF_W), .OUT_W(OUT_W)
+        .PIX_W(PIX_W), .COEF_W(COEF_W), .OUT_W(OUT_W), .RELU(RELU)
     ) dut (
         .clk(clk), .rst_n(rst_n),
         .k_we(k_we), .k_wset(k_wset), .k_widx(k_widx), .k_din(k_din),
