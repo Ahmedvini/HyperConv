@@ -7,12 +7,12 @@
 #   Multipliers use DSP blocks by default; 4th arg "lutmult" forces LUT
 #   multipliers (NO_DSP_MULT) for resource-tradeoff comparison.
 #
-# Default part: ZCU106 (Zynq UltraScale+ XCZU7EV). OOC mode is used because
+# Default part: PYNQ-Z2 (Zynq-7000 XC7Z020). OOC mode is used because
 # the accelerator is a core, not a full board design; pin constraints are
 # out of scope and stated as an assumption in the report.
 # ----------------------------------------------------------------------------
-set part   xczu7ev-ffvc1156-2-e
-set clk_ns 3.333
+set part   xc7z020clg400-1
+set clk_ns 5.0
 set tag    ""
 set defines {}
 if {$argc > 0} { set part   [lindex $argv 0] }

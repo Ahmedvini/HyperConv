@@ -1,28 +1,35 @@
 # ----------------------------------------------------------------------------
-# HyperConv - board.xdc  (TEMPLATE - fill in for your board before building)
+# HyperConv - board.xdc  (PYNQ-Z2, Zynq-7020 XC7Z020-1)
 #
-# Replace every <...> placeholder with the values from your board's master
-# XDC / schematic, then run synth/board/build_bitstream.tcl.
-#
-# You need exactly three things: a clock, a reset button, and 4 LEDs.
+# Pins from the PYNQ-Z2 master XDC / schematic:
+#   100 MHz oscillator on H16, buttons active-high with board pull-downs,
+#   LEDs LD3-LD0 on M14/N16/P14/R14.
 # ----------------------------------------------------------------------------
 
 # ---- clock -----------------------------------------------------------------
-# Set the pin and the I/O standard for your board's clock, and the REAL period
-# (ns) of that clock. Example below assumes a 100 MHz single-ended clock.
-set_property -dict { PACKAGE_PIN <CLK_PIN>  IOSTANDARD <CLK_IOSTD> } [get_ports clk_pin]
-create_clock -period <CLK_PERIOD_NS> -name sys_clk [get_ports clk_pin]
-#   100 MHz -> 10.000    125 MHz -> 8.000    50 MHz -> 20.000
+# 100 MHz single-ended oscillator
+set_property -dict {PACKAGE_PIN H16 IOSTANDARD LVCMOS33} [get_ports clk_pin]
+create_clock -period 10.000 -name sys_clk [get_ports clk_pin]
 
 # ---- reset button ----------------------------------------------------------
-set_property -dict { PACKAGE_PIN <RST_PIN>  IOSTANDARD <RST_IOSTD> } [get_ports rst_pin]
+# BTN0 (active-high on PYNQ-Z2; board_top.v inverts it)
+set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports rst_pin]
 
 # ---- status LEDs -----------------------------------------------------------
 # led[0]=pass  led[1]=fail  led[2]=done  led[3]=heartbeat
-set_property -dict { PACKAGE_PIN <LED0_PIN>  IOSTANDARD <LED_IOSTD> } [get_ports {led[0]}]
-set_property -dict { PACKAGE_PIN <LED1_PIN>  IOSTANDARD <LED_IOSTD> } [get_ports {led[1]}]
-set_property -dict { PACKAGE_PIN <LED2_PIN>  IOSTANDARD <LED_IOSTD> } [get_ports {led[2]}]
-set_property -dict { PACKAGE_PIN <LED3_PIN>  IOSTANDARD <LED_IOSTD> } [get_ports {led[3]}]
+set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports {led[0]}]
+set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS33} [get_ports {led[1]}]
+set_property -dict {PACKAGE_PIN N16 IOSTANDARD LVCMOS33} [get_ports {led[2]}]
+set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {led[3]}]
 
-# Typical I/O standards: LVCMOS33 (most 7-series boards, 3.3 V banks),
-# LVCMOS18 (many UltraScale+ HP/HD banks). Match your board's bank voltage.
+set_load 5.000 [all_outputs]
+set_property LOAD 5 [get_ports {led[0]}]
+set_property LOAD 5 [get_ports {led[1]}]
+set_property LOAD 5 [get_ports {led[2]}]
+set_property LOAD 5 [get_ports {led[3]}]
+
+# ---- quasi-static I/O -------------------------------------------------------
+# The reset button and the status LEDs change at human speed; they are not
+# timed paths. False-path them so check_timing reports no unconstrained I/O.
+set_false_path -from [get_ports rst_pin]
+set_false_path -to   [get_ports {led[*]}]

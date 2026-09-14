@@ -1,11 +1,13 @@
 // ----------------------------------------------------------------------------
 // HyperConv - mac_array.v
-// N*N parallel multiply-accumulate with 4-stage pipeline:
+// N*N parallel multiply-accumulate with 5-stage pipeline:
 //   stage 1: N*N products  (u8 pixel x s8 coefficient -> s16)
-//   stage 2: first-level partial sums (GROUP products each)
-//   stage 3: final sum -> ACC_W-bit accumulator
-//   stage 4: saturate to signed OUT_W and register the output
-// The adder tree is split across stages 2/3 to keep logic depth low on
+//   stage 2: second product register (maps to the DSP PREG; stage 1's
+//            register maps to MREG, so the multiplier itself is pipelined)
+//   stage 3: first-level partial sums (GROUP products each)
+//   stage 4: final sum -> ACC_W-bit accumulator
+//   stage 5: saturate to signed OUT_W and register the output
+// The adder tree is split across stages 3/4 to keep logic depth low on
 // slow fabrics (a single-stage 9-input tree misses 166 MHz on 7-series -1).
 //
 // Fixed-point analysis (defaults, N = 3):
@@ -64,23 +66,35 @@ module mac_array #(
                          * $signed(coeffs[k*COEF_W +: COEF_W]);
     end
 
-    // -------------------------------------------- stage 2: partial sums of 3
-    reg signed [PART_W-1:0] part_c;
-    reg signed [PART_W-1:0] part [0:NGRP-1];
+    // ------------------------------- stage 2: second product register (PREG)
+    // Gives the DSP a register on both sides of the multiplier (MREG + PREG):
+    // silences the DPOP-2 DRC, shortens the multiply path and saves power.
+    reg signed [PROD_W-1:0] prod_d [0:NN-1];
     reg v2;
 
     always @(posedge clk) begin
         if (v1)
+            for (k = 0; k < NN; k = k + 1)
+                prod_d[k] <= prod[k];
+    end
+
+    // -------------------------------------------- stage 3: partial sums of 3
+    reg signed [PART_W-1:0] part_c;
+    reg signed [PART_W-1:0] part [0:NGRP-1];
+    reg v3;
+
+    always @(posedge clk) begin
+        if (v2)
             for (g = 0; g < NGRP; g = g + 1) begin
                 part_c = {PART_W{1'b0}};
                 for (k = g*GROUP; k < g*GROUP + GROUP; k = k + 1)
                     if (k < NN)
-                        part_c = part_c + prod[k];
+                        part_c = part_c + prod_d[k];
                 part[g] <= part_c;
             end
     end
 
-    // -------------------------------------------------- stage 3: final sum
+    // -------------------------------------------------- stage 4: final sum
     reg signed [ACC_W-1:0] sum_c;
     always @* begin
         sum_c = {ACC_W{1'b0}};
@@ -89,16 +103,16 @@ module mac_array #(
     end
 
     reg signed [ACC_W-1:0] acc;
-    reg v3;
+    reg v4;
 
     always @(posedge clk) begin
-        if (v2)
+        if (v3)
             acc <= sum_c;
     end
 
-    // ---------------------------------------------------- stage 4: saturation
+    // ---------------------------------------------------- stage 5: saturation
     always @(posedge clk) begin
-        if (v3)
+        if (v4)
             out_data <= (acc > SAT_MAX) ? SAT_MAX[OUT_W-1:0] :
                         (acc < SAT_MIN) ? SAT_MIN[OUT_W-1:0] :
                                           acc[OUT_W-1:0];
@@ -110,12 +124,14 @@ module mac_array #(
             v1        <= 1'b0;
             v2        <= 1'b0;
             v3        <= 1'b0;
+            v4        <= 1'b0;
             out_valid <= 1'b0;
         end else begin
             v1        <= in_valid;
             v2        <= v1;
             v3        <= v2;
-            out_valid <= v3;
+            v4        <= v3;
+            out_valid <= v4;
         end
     end
 

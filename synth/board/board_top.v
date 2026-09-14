@@ -41,9 +41,9 @@ module board_top #(
     //   BUFG   u_bufg   (.I(clk_ibuf), .O(clk));
 
     // ---- reset -----------------------------------------------------------
-    // Active-low push button drives active-low reset directly.
-    // If your board's button is active-high, use:  wire rst_n = ~rst_pin;
-    wire rst_n = rst_pin;
+    // PYNQ-Z2 buttons are active-high (board pull-downs): pressed = 1.
+    // Invert so the core still sees an active-low reset.
+    wire rst_n = ~rst_pin;
 
     // ---- self-test core --------------------------------------------------
     wire pass, fail, done, hb;

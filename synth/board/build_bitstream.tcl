@@ -14,12 +14,15 @@
 # to the golden result, and lights led[0]=pass / led[1]=fail / led[2]=done /
 # led[3]=heartbeat. Program the resulting .bit onto the board.
 # ----------------------------------------------------------------------------
-if {$argc < 1} { error "usage: -tclargs <part> \[<testcase>\]" }
+# Works both as  vivado -source ... -tclargs <part> [<testcase>]  and when
+# sourced from the GUI Tcl console after:  set argv {<part> [<testcase>]}
+if {[info exists argv] && (![info exists argc] || $argc == 0)} { set argc [llength $argv] }
+if {$argc < 1} { error "usage: -tclargs <part> \[<testcase>\]  (or: set argv {<part> \[<testcase>\]} before sourcing)" }
 set part [lindex $argv 0]
 set tc   [expr {$argc > 1 ? [lindex $argv 1] : "sobel_x"}]
 
 set root  [file normalize [file join [file dirname [info script]] ../..]]
-set bdir  [file dirname [info script]]
+set bdir  [file normalize [file dirname [info script]]]
 set tdir  $root/sim/tests/$tc
 set out   $bdir/build
 file mkdir $out
@@ -43,6 +46,11 @@ opt_design
 place_design
 phys_opt_design
 route_design
+
+# PL-only Zynq bitstream: the PS7 hard block is deliberately unused (clock
+# comes from the board oscillator, no DDR/MIO), so the "PS7 block required"
+# check does not apply -- waive it before reporting.
+set_property SEVERITY Advisory [get_drc_checks ZPS7-1]
 
 report_utilization    -file $out/util.rpt
 report_timing_summary -file $out/timing.rpt

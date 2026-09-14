@@ -49,7 +49,7 @@ vivado -mode batch -source synth/build.tcl
 ```
 
 **Always run synthesis through `synth/build.tcl`** — it applies `synth/ooc.xdc`,
-which defines the clock (`create_clock -period 3.333 -name clk [get_ports clk]`)
+which defines the clock (`create_clock -period 5.0 -name clk [get_ports clk]`)
 and the I/O delay budget. Synthesizing in the GUI without reading that XDC
 leaves the `clk` port unconstrained, so `report_methodology` floods with
 `TIMING-17` "clock pin not reached by a timing clock" criticals — one per
@@ -57,7 +57,7 @@ sequential cell (264 for this design). They are a missing-constraint artifact,
 not a design bug; define the clock and they vanish:
 
 ```tcl
-create_clock -period 3.333 -name clk [get_ports clk]
+create_clock -period 5.0 -name clk [get_ports clk]
 report_methodology
 ```
 
@@ -70,8 +70,7 @@ cd synth ; source create_project.tcl
 ```
 
 It builds an out-of-context project at `vivado_ooc/` (gitignored) reading the
-same `ooc.xdc`, so its reports match the batch flow (WNS +1.094 ns, 0
-methodology violations).
+same `ooc.xdc`, so its reports match the batch flow.
 
 Every test prints `TB: PASS/FAIL` plus measured latency; the runner
 summarizes. Add `-testplusarg VCD` in `run_all.sh` (or run xsim manually) to
@@ -97,27 +96,29 @@ Two multiplier mappings measured on two parts; **DSP variant is the chosen
 configuration** (better on every axis — the hard DSP registers absorb the
 pipeline FFs and shorten the multiply path):
 
-| | ZCU106 LUT-mult | **ZCU106 DSP** | Z7020 LUT-mult | **Z7020 DSP** |
+| | Z7020 LUT-mult | **Z7020 DSP** | ZCU106 LUT-mult | ZCU106 DSP |
 |---|---|---|---|---|
-| LUTs / FFs / DSPs / BRAMs | 842 / 404 / 0 / 0 | 263 / 140 / 9 / 0 | 851 / 463 / 0 / 0 | 290 / 140 / 9 / 0 |
-| Fmax (constraint) | 479 MHz (300 ✓) | **598 MHz** (300 ✓)¹ | 173 MHz (200 ✗) | **259 MHz** (200 ✓) |
-| Power: static + dynamic | 0.592 + 0.041 W | 0.592 + 0.029 W | 0.103 + 0.043 W | 0.103 + 0.034 W |
-| FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 1.88×10⁻³ | 2.26×10⁻³ | 8.05×10⁻³ | **9.79×10⁻³** |
+| LUTs / FFs / DSPs / BRAMs | 856 / 427 / 0 / 0 | **290 / 140 / 9 / 0** | 842 / 404 / 0 / 0 | 263 / 140 / 9 / 0 |
+| Fmax (constraint) | 171 MHz (200 ✗) | **219 MHz** (200 ✓)¹ | 479 MHz (300 ✓) | 598 MHz (300 ✓)² |
+| Power: static + dynamic | 0.103 + 0.041 W | **0.103 + 0.034 W** | 0.592 + 0.041 W | 0.592 + 0.029 W |
+| FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 8.11×10⁻³ | **9.79×10⁻³** | 1.88×10⁻³ | 2.26×10⁻³ |
 
-ZCU106 = XCZU7EV-2 (user board); Z7020 = XC7Z020-1 (PYNQ-Z2/Zybo class).
-The FoM gap between parts is almost entirely static power — the design
-itself burns ≤43 mW.
-¹ Internal fabric paths; with the I/O delay budget in the constraints the
-reported WNS is +1.094 ns @ 300 MHz (Fmax ≈ 446 MHz), hold met (WHS +0.036).
-`report_methodology` is fully clean — 0 violations.
+Z7020 = XC7Z020-1 (PYNQ-Z2 — current target board, `synth/reports_z2_dsp/`
+and `synth/reports_z2_lutmult/`); ZCU106 = XCZU7EV-2 (previous target,
+retained for comparison). The FoM gap between parts is almost entirely
+static power — the design itself burns ≤43 mW.
+¹ Chosen configuration, incl. I/O delay budget: WNS +0.433 ns @ 200 MHz,
+hold met (WHS +0.068 ns). `report_methodology` clean — 0 violations.
+² ZCU106 internal fabric paths; with the I/O budget, WNS +1.094 ns @ 300 MHz
+(Fmax ≈ 446 MHz), hold met (WHS +0.036).
 
 Reproduce with `vivado -mode batch -source synth/build.tcl -tclargs
-<part> <clk_ns> <tag> [lutmult]` (no tclargs = ZCU106 @ 300 MHz; DSP
+<part> <clk_ns> <tag> [lutmult]` (no tclargs = PYNQ-Z2 @ 200 MHz; DSP
 multipliers are the default, `lutmult` forces the LUT variant). Reports
 land in `synth/reports*/`. See `docs/report_skeleton.md` for the report
 draft.
 
-### Implementation reports (ZCU106, DSP variant, post-route)
+### Implementation reports (ZCU106 builds — previous target, DSP variant, post-route)
 
 <table>
 <tr>

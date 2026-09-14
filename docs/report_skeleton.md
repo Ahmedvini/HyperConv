@@ -78,30 +78,30 @@ and compares against both. 9 testcases, all **PASS** (Vivado 2025.2 xsim):
 
 TODO: waveform screenshots (xsim `+VCD` or Vivado GUI on the routed dcp).
 
-## 5. FPGA results (ZCU106, xczu7ev-ffvc1156-2-e, Vivado 2025.2, OOC, 300 MHz target)
+## 5. FPGA results (PYNQ-Z2, xc7z020clg400-1, Vivado 2025.2, OOC, 200 MHz target)
 
 Post-route, chosen configuration (DSP multipliers — the RTL default;
-N=3, 32×32, 4 kernel sets), from synth/reports_zu_dsp/:
+N=3, 32×32, 4 kernel sets), from synth/reports_z2_dsp/:
 
 | Metric | Value |
 |---|---|
-| CLB LUTs | 263 — 0.11 % |
-| CLB Registers | 140 — 0.03 % |
-| DSPs | **9** (DSP48E2, one per product; hard regs absorb pipeline FFs) |
+| CLB LUTs | 290 — 0.55 % |
+| CLB Registers | 140 — 0.13 % |
+| DSPs | **9** (DSP48E1, one per product; hard regs absorb pipeline FFs) |
 | BRAMs | **0** (line buffers in distributed RAM, by design) |
-| Timing | WNS **+1.094 ns** at 300 MHz → met (hold met, WHS +0.036 ns); **Fmax ≈ 446 MHz** (incl. I/O budget; internal fabric paths alone ≈ 598 MHz) |
-| Power | 0.621 W total = 0.592 W static (die leakage) + **0.029 W dynamic** |
+| Timing | WNS **+0.433 ns** at 200 MHz → met (hold met, WHS +0.068 ns); **Fmax ≈ 219 MHz** (incl. I/O delay budget) |
+| Power | 0.138 W total = 0.103 W static + **0.034 W dynamic** |
 | Power confidence | Medium (vectorless, default toggle rates) |
 | Methodology (`report_methodology`) | **0 violations** (clean) |
 
 FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs))
-    = 1 / (0.621 × (263 + 450)) = **2.26 × 10⁻³** (total power)
-    = 1 / (0.029 × 713) = 48.4 × 10⁻³ (dynamic-only, for discussion)
+    = 1 / (0.138 × (290 + 450)) = **9.79 × 10⁻³** (total power)
+    = 1 / (0.034 × 740) = 39.8 × 10⁻³ (dynamic-only, for discussion)
 
-Note: static leakage of the large ZU7EV die dominates the power term and
-therefore the FoM. See section 8 — the same RTL on the small Zynq-7020
-scores ≈4.3× better (9.79 × 10⁻³), and the LUT-multiplier variant is
-measured there as the justification for choosing DSP mapping.
+Note: the same RTL was previously measured on the ZCU106 (XCZU7EV,
+synth/reports_zu_dsp/) — see section 8. The small Zynq-7020 die leaks
+~0.5 W less, which is why its FoM is ≈4.3× better; the LUT-multiplier
+variant is measured there as the justification for choosing DSP mapping.
 
 ## 6. Table 1 (required)
 
@@ -111,21 +111,23 @@ measured there as the justification for choosing DSP mapping.
 | Input precision | Fixed-point unsigned | 8 | bits | native grayscale |
 | Kernel precision | 8-bit signed | 8 | bits | 4 programmable sets |
 | Architecture type | — | line-buffer + sliding window, fully pipelined | | |
-| Multipliers / MACs | — | N² = 9 (N=3) | | mapped to DSP48E2 |
+| Multipliers / MACs | — | N² = 9 (N=3) | | mapped to DSP48E1 |
 | Pipeline stages | — | 5 | | window→prod→partial→sum→sat |
 | Latency | — | 71 (32×32, N=3) | cycles | first px → first out |
 | Throughput | — | 1 steady-state (0.879 frame-avg) | pixels/cycle | 900 out / 1024 in |
-| FPGA utilization | LUTs, FFs, DSPs, BRAMs | 263 / 140 / 9 / 0 | | ZCU106, post-route, DSP variant |
-| Maximum frequency | — | 446 (WNS +1.094 @ 300 MHz) | MHz | timing met, incl. I/O delay budget |
-| Power estimate | — | 621 (29 dynamic + 592 static) | mW | report_power, vectorless |
+| FPGA utilization | LUTs, FFs, DSPs, BRAMs | 290 / 140 / 9 / 0 | | PYNQ-Z2, post-route, DSP variant |
+| Maximum frequency | — | 219 (WNS +0.433 @ 200 MHz) | MHz | timing met, incl. I/O delay budget |
+| Power estimate | — | 138 (34 dynamic + 103 static) | mW | report_power, vectorless |
 | Verification status | Pass/Fail + cases | PASS, 9/9 cases | | bit-exact vs golden |
-| FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 2.26×10⁻³ | | ZCU106; 9.79×10⁻³ on Z7020 (§8) |
+| FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 9.79×10⁻³ | | PYNQ-Z2; 2.26×10⁻³ on ZCU106 (§8) |
 
 ## 7. Assumptions (state all)
 
-- Part: xczu7ev-ffvc1156-2-e (ZCU106); tool: Vivado 2025.2; OOC flow
-  (accelerator is a core; pin/board integration out of scope)
-- Clock target 300 MHz; power is vectorless estimate at default toggle rates
+- Part: xc7z020clg400-1 (PYNQ-Z2 — current target; previous runs on
+  xczu7ev-ffvc1156-2-e / ZCU106 retained for comparison); tool: Vivado 2025.2;
+  OOC flow (accelerator is a core; pin/board integration out of scope)
+- Clock target 200 MHz (5.0 ns) on PYNQ-Z2 (300 MHz on previous ZCU106 runs);
+  power is vectorless estimate at default toggle rates
 - Core ports constrained with an input/output delay budget of 25% of the
   period (max/setup) and 10% (min/hold), so port paths are timed (TIMING-18)
   and the max/min corners are distinguished (XDCH-2). `report_methodology`
@@ -151,12 +153,12 @@ measured there as the justification for choosing DSP mapping.
   warnings suggesting USE_DSP48. DSP mapping is now the RTL default;
   `-tclargs <part> <ns> <tag> lutmult` reproduces the LUT variant:
 
-| Variant (post-route) | ZCU106 LUT-mult | ZCU106 DSP | Z7020 LUT-mult | Z7020 DSP |
+| Variant (post-route) | Z7020 LUT-mult | **Z7020 DSP** | ZCU106 LUT-mult | ZCU106 DSP |
 |---|---|---|---|---|
-| LUTs / FFs / DSPs | 842 / 404 / 0 | 263 / 140 / 9 | 851 / 463 / 0 | 290 / 140 / 9 |
-| Fmax | ≈479 MHz | ≈598 MHz | ≈173 MHz | ≈259 MHz |
-| Power total (dyn) W | 0.633 (0.041) | 0.621 (0.029) | 0.146 (0.043) | 0.138 (0.034) |
-| FoM (total power) | 1.88×10⁻³ | 2.26×10⁻³ | 8.05×10⁻³ | **9.79×10⁻³** |
+| LUTs / FFs / DSPs | 856 / 427 / 0 | **290 / 140 / 9** | 842 / 404 / 0 | 263 / 140 / 9 |
+| Fmax | ≈171 MHz (misses 200) | **≈219 MHz** | ≈479 MHz | ≈598 MHz |
+| Power total (dyn) W | 0.144 (0.041) | **0.138 (0.034)** | 0.633 (0.041) | 0.621 (0.029) |
+| FoM (total power) | 8.11×10⁻³ | **9.79×10⁻³** | 1.88×10⁻³ | 2.26×10⁻³ |
 
   Verdict: the DSP variant wins on *every* axis — the 50/DSP FoM penalty
   (9 DSPs = 450) is outweighed by the ~560 LUTs saved, and the DSP's hard

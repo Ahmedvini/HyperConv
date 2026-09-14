@@ -28,7 +28,7 @@ set proj_dir $root/vivado_ooc
 catch { close_sim -force -quiet }
 catch { close_project -quiet }
 
-create_project conv_top_ooc $proj_dir -part xczu7ev-ffvc1156-2-e -force
+create_project conv_top_ooc $proj_dir -part xc7z020clg400-1 -force
 
 # ---- design sources + constraints ----
 add_files -norecurse [glob $root/rtl/*.v]
@@ -53,7 +53,7 @@ set_property -name {xsim.simulate.runtime} -value {0ns} -objects [get_filesets s
 update_compile_order -fileset sim_1
 
 puts "----------------------------------------------------------------"
-puts "Project 'conv_top_ooc' ready (part xczu7ev-ffvc1156-2-e, OOC)."
+puts "Project 'conv_top_ooc' ready (part xc7z020clg400-1, OOC)."
 puts "  Flow Navigator -> Run Simulation      (waveforms; sobel_x by default)"
 puts "  Flow Navigator -> Run Synthesis, then Run Implementation (reports)"
 puts "In the sim wave window:  source ../sim/wave_setup.tcl ; run all"
