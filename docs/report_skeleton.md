@@ -85,18 +85,18 @@ N=3, 32×32, 4 kernel sets), from synth/reports_z2_dsp/:
 
 | Metric | Value |
 |---|---|
-| CLB LUTs | 290 — 0.55 % |
-| CLB Registers | 140 — 0.13 % |
-| DSPs | **9** (DSP48E1, one per product; hard regs absorb pipeline FFs) |
+| CLB LUTs | 248 — 0.47 % |
+| CLB Registers | 141 — 0.13 % |
+| DSPs | **9** (DSP48E1, one per product; MREG+PREG pipelined, hard regs absorb pipeline FFs) |
 | BRAMs | **0** (line buffers in distributed RAM, by design) |
-| Timing | WNS **+0.433 ns** at 200 MHz → met (hold met, WHS +0.068 ns); **Fmax ≈ 219 MHz** (incl. I/O delay budget) |
-| Power | 0.138 W total = 0.103 W static + **0.034 W dynamic** |
+| Timing | WNS **+0.441 ns** at 200 MHz → met (hold met, WHS +0.068 ns); **Fmax ≈ 219 MHz** (incl. I/O delay budget) |
+| Power | 0.135 W total = 0.103 W static + **0.032 W dynamic** |
 | Power confidence | Medium (vectorless, default toggle rates) |
 | Methodology (`report_methodology`) | **0 violations** (clean) |
 
 FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs))
-    = 1 / (0.138 × (290 + 450)) = **9.79 × 10⁻³** (total power)
-    = 1 / (0.034 × 740) = 39.8 × 10⁻³ (dynamic-only, for discussion)
+    = 1 / (0.135 × (248 + 450)) = **10.6 × 10⁻³** (total power)
+    = 1 / (0.032 × 698) = 44.8 × 10⁻³ (dynamic-only, for discussion)
 
 Note: the same RTL was previously measured on the ZCU106 (XCZU7EV,
 synth/reports_zu_dsp/) — see section 8. The small Zynq-7020 die leaks
@@ -112,14 +112,14 @@ variant is measured there as the justification for choosing DSP mapping.
 | Kernel precision | 8-bit signed | 8 | bits | 4 programmable sets |
 | Architecture type | — | line-buffer + sliding window, fully pipelined | | |
 | Multipliers / MACs | — | N² = 9 (N=3) | | mapped to DSP48E1 |
-| Pipeline stages | — | 5 | | window→prod→partial→sum→sat |
-| Latency | — | 71 (32×32, N=3) | cycles | first px → first out |
+| Pipeline stages | — | 6 | | window→prod(MREG)→prod_d(PREG)→partial→sum→sat |
+| Latency | — | 72 (32×32, N=3) | cycles | first px → first out |
 | Throughput | — | 1 steady-state (0.879 frame-avg) | pixels/cycle | 900 out / 1024 in |
-| FPGA utilization | LUTs, FFs, DSPs, BRAMs | 290 / 140 / 9 / 0 | | PYNQ-Z2, post-route, DSP variant |
-| Maximum frequency | — | 219 (WNS +0.433 @ 200 MHz) | MHz | timing met, incl. I/O delay budget |
-| Power estimate | — | 138 (34 dynamic + 103 static) | mW | report_power, vectorless |
+| FPGA utilization | LUTs, FFs, DSPs, BRAMs | 248 / 141 / 9 / 0 | | PYNQ-Z2, post-route, DSP variant |
+| Maximum frequency | — | 219 (WNS +0.441 @ 200 MHz) | MHz | timing met, incl. I/O delay budget |
+| Power estimate | — | 135 (32 dynamic + 103 static) | mW | report_power, vectorless |
 | Verification status | Pass/Fail + cases | PASS, 9/9 cases | | bit-exact vs golden |
-| FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 9.79×10⁻³ | | PYNQ-Z2; 2.26×10⁻³ on ZCU106 (§8) |
+| FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 10.6×10⁻³ | | PYNQ-Z2; 2.26×10⁻³ on ZCU106 (§8) |
 
 ## 7. Assumptions (state all)
 
@@ -155,10 +155,10 @@ variant is measured there as the justification for choosing DSP mapping.
 
 | Variant (post-route) | Z7020 LUT-mult | **Z7020 DSP** | ZCU106 LUT-mult | ZCU106 DSP |
 |---|---|---|---|---|
-| LUTs / FFs / DSPs | 856 / 427 / 0 | **290 / 140 / 9** | 842 / 404 / 0 | 263 / 140 / 9 |
-| Fmax | ≈171 MHz (misses 200) | **≈219 MHz** | ≈479 MHz | ≈598 MHz |
-| Power total (dyn) W | 0.144 (0.041) | **0.138 (0.034)** | 0.633 (0.041) | 0.621 (0.029) |
-| FoM (total power) | 8.11×10⁻³ | **9.79×10⁻³** | 1.88×10⁻³ | 2.26×10⁻³ |
+| LUTs / FFs / DSPs | 858 / 562 / 0 | **248 / 141 / 9** | 842 / 404 / 0 | 263 / 140 / 9 |
+| Fmax | ≈168 MHz (misses 200) | **≈219 MHz** | ≈479 MHz | ≈598 MHz |
+| Power total (dyn) W | 0.152 (0.048) | **0.135 (0.032)** | 0.633 (0.041) | 0.621 (0.029) |
+| FoM (total power) | 7.67×10⁻³ | **10.6×10⁻³** | 1.88×10⁻³ | 2.26×10⁻³ |
 
   Verdict: the DSP variant wins on *every* axis — the 50/DSP FoM penalty
   (9 DSPs = 450) is outweighed by the ~560 LUTs saved, and the DSP's hard

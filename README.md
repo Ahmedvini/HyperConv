@@ -13,7 +13,7 @@ accelerator for grayscale images / single-channel feature maps.
 | Input | ≥32×32 (parameter), 8-bit unsigned pixels, streamed row-major |
 | Output | 16-bit signed, saturated, "valid" convolution ((H−N+1)×(W−N+1)) |
 | Throughput | **1 output pixel/cycle** in steady state (fully pipelined) |
-| Latency | (N−1)·IMG_W + N pixels to first window + 5 pipeline cycles (71 total for 32×32, N=3) |
+| Latency | (N−1)·IMG_W + N pixels to first window + 6 pipeline cycles (72 total for 32×32, N=3) |
 | BRAM | 0 — line buffers use distributed (LUT) RAM at these sizes |
 
 Convolution is implemented as cross-correlation (no kernel flip), the CNN
@@ -98,16 +98,16 @@ pipeline FFs and shorten the multiply path):
 
 | | Z7020 LUT-mult | **Z7020 DSP** | ZCU106 LUT-mult | ZCU106 DSP |
 |---|---|---|---|---|
-| LUTs / FFs / DSPs / BRAMs | 856 / 427 / 0 / 0 | **290 / 140 / 9 / 0** | 842 / 404 / 0 / 0 | 263 / 140 / 9 / 0 |
-| Fmax (constraint) | 171 MHz (200 ✗) | **219 MHz** (200 ✓)¹ | 479 MHz (300 ✓) | 598 MHz (300 ✓)² |
-| Power: static + dynamic | 0.103 + 0.041 W | **0.103 + 0.034 W** | 0.592 + 0.041 W | 0.592 + 0.029 W |
-| FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 8.11×10⁻³ | **9.79×10⁻³** | 1.88×10⁻³ | 2.26×10⁻³ |
+| LUTs / FFs / DSPs / BRAMs | 858 / 562 / 0 / 0 | **248 / 141 / 9 / 0** | 842 / 404 / 0 / 0 | 263 / 140 / 9 / 0 |
+| Fmax (constraint) | 168 MHz (200 ✗) | **219 MHz** (200 ✓)¹ | 479 MHz (300 ✓) | 598 MHz (300 ✓)² |
+| Power: static + dynamic | 0.103 + 0.048 W | **0.103 + 0.032 W** | 0.592 + 0.041 W | 0.592 + 0.029 W |
+| FoM = Thr/(P·(LUT+50·DSP+100·BRAM)) | 7.67×10⁻³ | **10.6×10⁻³** | 1.88×10⁻³ | 2.26×10⁻³ |
 
 Z7020 = XC7Z020-1 (PYNQ-Z2 — current target board, `synth/reports_z2_dsp/`
 and `synth/reports_z2_lutmult/`); ZCU106 = XCZU7EV-2 (previous target,
 retained for comparison). The FoM gap between parts is almost entirely
 static power — the design itself burns ≤43 mW.
-¹ Chosen configuration, incl. I/O delay budget: WNS +0.433 ns @ 200 MHz,
+¹ Chosen configuration, incl. I/O delay budget: WNS +0.441 ns @ 200 MHz,
 hold met (WHS +0.068 ns). `report_methodology` clean — 0 violations.
 ² ZCU106 internal fabric paths; with the I/O budget, WNS +1.094 ns @ 300 MHz
 (Fmax ≈ 446 MHz), hold met (WHS +0.036).
@@ -152,7 +152,7 @@ in every test by loading a decoy kernel into a neighboring set.
 *Full frame — `px_valid`/`px_data` stream in, `out_valid`/`out_data` stream out at 1 pixel/cycle, `frame_done` pulses on the last output.*
 
 ![Latency waveform: first pixel to first output](docs/Images/waveform-latency.png)
-*Latency — 71 cycles (710 ns @ 100 MHz) from the first pixel to the first valid output.*
+*Latency — 72 cycles (720 ns @ 100 MHz) from the first pixel to the first valid output.*
 
 ### Edge-detection demo (bonus)
 
@@ -174,7 +174,8 @@ reset it programs the kernel, streams a stored 32×32 image through `conv_top`,
 compares every output to the golden result **on-chip**, and reports on LEDs —
 `led[0]`=pass, `led[1]`=fail, `led[2]`=done, `led[3]`=heartbeat. Verified in
 simulation (`tb/tb_selftest.v`: passes on correct data, asserts fail on wrong
-data) and confirmed synthesizable (384 LUT / 9 DSP / 1 BRAM).
+data) and confirmed synthesizable (399 LUT / 9 DSP / 0.5 BRAM on PYNQ-Z2,
+timing met with WNS +4.055 ns @ 100 MHz).
 
 To build a bitstream, target it to a board: fill the package pins in
 `synth/board/board.xdc` (clock + reset + 4 LEDs), then
