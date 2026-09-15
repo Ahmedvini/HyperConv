@@ -205,21 +205,29 @@ variant is measured there as the justification for choosing DSP mapping.
 
 ## 6. Table 1 (required)
 
+Chosen configuration: **hybrid DMP core** (`conv_top_hybrid`) — baseline
+(`conv_top`) shown in parentheses for comparison; both are fully verified
+and reproducible from this package.
+
 | Parameter | Specification | Team Result | Units | Comments |
 |-----------|---------------|-------------|-------|----------|
 | Input image size | ≥ 32×32 | 32×32 (parameterizable) | pixels | IMG_W/IMG_H params |
 | Input precision | Fixed-point unsigned | 8 | bits | native grayscale |
-| Kernel precision | 8-bit signed | 8 | bits | 4 programmable sets |
-| Architecture type | — | line-buffer + sliding window, fully pipelined | | |
-| Multipliers / MACs | — | N² = 9 (N=3) | | mapped to DSP48E1 |
-| Pipeline stages | — | 6 | | window→prod(MREG)→prod_d(PREG)→partial→sum→sat |
-| Latency | — | 72 (32×32, N=3) | cycles | first px → first out |
-| Throughput | — | 1 steady-state (0.879 frame-avg) | pixels/cycle | 900 out / 1024 in |
-| FPGA utilization | LUTs, FFs, DSPs, BRAMs | 248 / 141 / 9 / 0 | | PYNQ-Z2, post-route, DSP variant |
-| Maximum frequency | — | 219 (WNS +0.441 @ 200 MHz) | MHz | timing met, incl. I/O delay budget |
-| Power estimate | — | 135 (32 dynamic + 103 static) | mW | report_power, vectorless |
-| Verification status | Pass/Fail + cases | PASS, 11/11 cases | | bit-exact vs golden, incl. ReLU |
-| FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | 10.6×10⁻³ | | PYNQ-Z2; 2.26×10⁻³ on ZCU106 (§8) |
+| Kernel precision | 8-bit signed | 8 | bits | 4 runtime-programmable sets |
+| Architecture type | — | line-buffer + sliding window, fully pipelined, dual-multiply-packed DSPs | | 2 adjacent windows/DSP (§8) |
+| Multipliers / MACs | — | 9 DSP48E1 for 2 windows (N²=9, N=3) | | DMP: each DSP does both windows' product |
+| Pipeline stages | — | 7 (baseline: 6) | | window→MREG→PREG→extract→partial→sum→sat/ReLU |
+| Latency | — | 73 (baseline: 72) | cycles | first px pair → first result pair (32×32, N=3) |
+| Throughput | — | **2 steady-state** (baseline: 1) | pixels/cycle | 900 out / 512 in-beats |
+| FPGA utilization | LUTs, FFs, DSPs, BRAMs | **365 / 532 / 9 / 0** (baseline: 248 / 141 / 9 / 0) | | PYNQ-Z2, post-route, OOC |
+| Maximum frequency | — | 222 (WNS +0.502 @ 200 MHz; baseline: 219, +0.441) | MHz | timing met incl. I/O delay budget; hold met |
+| Power estimate | — | 164 (60 dynamic + 103 static; baseline: 135) | mW | report_power, vectorless |
+| Verification status | Pass/Fail + cases | PASS, 11/11 cases (both cores, same golden vectors) | | bit-exact vs Python+MATLAB golden, incl. ReLU |
+| FoM | Thr / (P × (LUT+50·DSP+100·BRAM)) | **14.96×10⁻³** (baseline: 10.6×10⁻³) | | +41%; ZCU106 comparison in §9 |
+
+Board-demo bitstream (bonus): hybrid self-test, 579 LUT / 9 DSP / 0 BRAM,
+WNS +3.068 @ 100 MHz, on-chip comparison against the golden result,
+LED verdict (`synth/board/build_hybrid/hyperconv_hybrid_selftest.bit`).
 
 ## 7. Assumptions (state all)
 
