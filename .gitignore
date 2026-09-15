@@ -28,3 +28,6 @@ Table.xlsx
 
 # Vivado GUI report exports
 *.rpx
+experiments/dmp_probe/xsim.dir/
+experiments/dmp_probe/logs/
+experiments/dmp_probe/clockInfo.txt
