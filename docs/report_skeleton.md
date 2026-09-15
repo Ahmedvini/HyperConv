@@ -1,8 +1,8 @@
 # HyperConv — Competition Report Skeleton
 
 > Working draft for the 2026 IEEE SSCS Egypt Student Design Competition report.
-> Sections map 1:1 to the deliverables checklist in plan.md. Items marked
-> `TODO` need content or final numbers.
+> Sections map 1:1 to the deliverables checklist in plan.md. All numeric
+> content is final (measured).
 
 ## 1. Architecture overview
 
