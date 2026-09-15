@@ -42,11 +42,21 @@ kernel bus ─► kernel_mem (4 programmable sets, registered select mux)
 | Product | u8×s8 | −32 640 … +32 385 | 16 (signed) |
 | Partial sum (3 products) | 16 + 2 | ±97 155 max | 18 (signed) |
 | Accumulator (N=3) | 18 + ⌈log₂3⌉ | ±291 465 max | 20 (signed) |
+| Accumulator (N=5) | 18 + ⌈log₂9⌉ | ±810 625 max | **22 (signed)** — width is *generated*, see below |
 | Output | SQ16.0 | −32 768 … +32 767 | 16 (signed, **saturated**) |
 
 - Accumulator is full-precision → **no intermediate overflow possible**;
   the only precision decision is the final saturation to 16 bits
   (no rounding needed — integer arithmetic is exact).
+- **The accumulator width is generated from N, not fixed**: the RTL
+  computes `ACC_W = PART_W + ⌈log₂⌈N²/3⌉⌉` (`mac_array.v` / `dmp_mac_array.v`
+  localparams), so N=5 automatically elaborates a 22-bit accumulator
+  (baseline; the hybrid's is 23 bits because its extracted products are
+  s17 rather than s16 — one extra bit for the packed-DSP field). Verified
+  by elaboration and by the `random_n5` testcase passing bit-exact.
+  Worst-case N=5 sum: 8 full partials (3·32 385) + 1 product = 810 625,
+  which fits in signed 21 bits — the generated 22 (23) bits leave ≥1 bit
+  of margin.
 - Numeric example (hand_4x4 testcase, first output pixel): image 4×4 = 01
   02 03 / 05 06 07 / 09 0a 0b / … , kernel = all-ones 3×3. First window:
   {1,2,3, 5,6,7, 9,10,11}; products = pixels (×1, all fit s16); partials
@@ -293,6 +303,11 @@ DMP was proven standalone before integration: 101,276 vectors (all corner
 values incl. 255×−128, full coefficient sweep, 100k random, continuous and
 gapped valid streams) with 0 errors, and exactly **1 DSP48E1** inferred per
 packed multiply (`experiments/dmp_probe/`).
+
+Fixed-point (hybrid): identical analysis to §2 with products stored as s17
+(the packed-DSP extraction width), giving a generated accumulator of
+**21 bits for N=3 / 23 bits for N=5** — full precision, no intermediate
+overflow, same final s16 saturation.
 
 <table>
 <tr>
