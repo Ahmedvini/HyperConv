@@ -31,3 +31,5 @@ Table.xlsx
 experiments/dmp_probe/xsim.dir/
 experiments/dmp_probe/logs/
 experiments/dmp_probe/clockInfo.txt
+sim/tests/*/dut_out_hybrid.hex
+experiments/dmp_probe/timing_impl.rpt
