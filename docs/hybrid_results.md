@@ -60,6 +60,10 @@ multiply (3 LUT / 36 FF extraction overhead).
 
 ## 2. Measured comparison (all numbers from Vivado, OOC @ 200 MHz)
 
+Vivado screenshots for both cores live in `docs/Images/base/` and
+`docs/Images/hybrid/` (utilization, timing, power, methodology, device,
+package and schematic views — GUI captures from the routed checkpoints).
+
 | Architecture | LUT | FF | DSP | BRAM | WNS (ns) | Fmax | Power (W)* | px/cyc | FoM (×10⁻³) | Timing | Verif |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | **Baseline** `conv_top` | 248 | 141 | 9 | 0 | +0.441 | ~219 MHz | 0.135 | 1 | 10.60 | PASS | 11/11 |

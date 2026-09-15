@@ -83,7 +83,7 @@
 <!-- 3 --------------------------------------------------------- architecture -->
 <section class="slide">
   <h2>Architecture — streaming line buffer + sliding window</h2>
-  <img src="../docs/Images/block-diagram.png" alt="block diagram" style="max-height:400px">
+  <img src="../docs/Images/hybrid/schematic.png" alt="hybrid schematic" style="max-height:400px">
   <ul>
     <li><b>No datapath FSM</b>: position counters + a 6-bit valid chain;
         arbitrary input stalls tolerated, back-to-back frames</li>
@@ -112,9 +112,9 @@
       <b>only</b> the final saturate to s16 loses range — by design</p>
     </div>
     <div>
-      <img src="../docs/Images/waveform-latency.png" alt="latency waveform"
+      <img src="../docs/Images/base/waveform-latency.png" alt="latency waveform"
            style="max-height:300px">
-      <p class="note">sobel_x @ 100 MHz: first pixel → first result = 72 cycles</p>
+      <p class="note">sobel_x @ 100 MHz (baseline core): first pixel → first result = 72 cycles</p>
     </div>
   </div>
   <div class="footer"><span>HyperConv</span><span>4</span></div>
@@ -141,9 +141,9 @@
       </ul>
     </div>
     <div>
-      <img src="../docs/Images/waveform-full-frame.png"
-           alt="full frame waveform" style="max-height:300px">
-      <p class="note">1 px/cycle streaming; frame_done on the last of 900 outputs</p>
+      <img src="../docs/Images/base/waveform-full-frame.png"
+            alt="full frame waveform" style="max-height:300px">
+      <p class="note">1 px/cycle streaming (baseline core); frame_done on the last of 900 outputs</p>
     </div>
   </div>
   <div class="footer"><span>HyperConv</span><span>5</span></div>
@@ -165,6 +165,13 @@
     <tr><td>LUT mult (comparison)</td><td>1</td><td>858 / 562 / 0</td><td>168 MHz ✗</td><td>0.152 W (48 mW)</td><td>7.67×10⁻³</td></tr>
   </table>
   <p class="note">FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs)) — the hybrid doubles throughput on the same 9 DSPs: +41% FoM; timing, hold and methodology all clean.</p>
+  <table style="margin-top:10px">
+    <tr>
+      <td width="33%"><img src="../docs/Images/hybrid/report-utilization.png" alt="hybrid utilization" width="100%"></td>
+      <td width="33%"><img src="../docs/Images/hybrid/report-timing.png" alt="hybrid timing" width="100%"></td>
+      <td width="34%"><img src="../docs/Images/hybrid/device-view.png" alt="hybrid device view" width="100%"></td>
+    </tr>
+  </table>
   <div class="footer"><span>HyperConv</span><span>6</span></div>
 </section>
 
@@ -172,7 +179,7 @@
 <section class="slide">
   <h2>How 2 px/cycle costs zero extra DSPs — dual-multiply packing</h2>
   <img src="../docs/Images/block-diagram-hybrid.png" alt="baseline vs hybrid"
-       style="max-height:330px">
+       style="max-height:310px">
   <ul style="font-size:20px">
     <li>Adjacent windows share the kernel → two pixels pack into the DSP's
         25-bit <b>A</b> port (stride 16) against one shared coefficient:
@@ -183,6 +190,22 @@
         multipumping (adds MMCM/CDC, zero gain), 18-DSP 2-px (FoM-neutral).</li>
   </ul>
   <div class="footer"><span>HyperConv</span><span>7</span></div>
+</section>
+
+<!-- 6c ------------------------------------------------------ vivado reports -->
+<section class="slide">
+  <h2>Implementation views — hybrid core, post-route (PYNQ-Z2)</h2>
+  <table>
+    <tr>
+      <td width="50%"><img src="../docs/Images/hybrid/schematic.png" alt="hybrid schematic" width="100%"><br><sub><b>Schematic</b> — window_gen_2px + dmp_mac_array</sub></td>
+      <td width="50%"><img src="../docs/Images/hybrid/package-view.png" alt="hybrid package view" width="100%"><br><sub><b>Package view</b> — hybrid core on the xc7z020 footprint</sub></td>
+    </tr>
+    <tr>
+      <td width="50%"><img src="../docs/Images/hybrid/report-power.png" alt="hybrid power" width="100%"><br><sub><b>Power</b> — 0.164 W total, 0.060 W dynamic</sub></td>
+      <td width="50%"><img src="../docs/Images/hybrid/report-methodology.png" alt="methodology" width="100%"><br><sub><b>Methodology</b> — 0 violations</sub></td>
+    </tr>
+  </table>
+  <div class="footer"><span>HyperConv</span><span>8</span></div>
 </section>
 
 <!-- 7 ----------------------------------------------------------- tradeoffs -->
@@ -205,7 +228,7 @@
     <li><b>Part choice dominates FoM via static power</b>: same RTL scores
         10.6×10⁻³ on Z-7020 vs 2.26×10⁻³ on ZU7EV (0.5 W die leakage).</li>
   </ul>
-  <div class="footer"><span>HyperConv</span><span>8</span></div>
+  <div class="footer"><span>HyperConv</span><span>9</span></div>
 </section>
 
 <!-- 8 ------------------------------------------------------------- bonus -->
@@ -226,7 +249,7 @@
   utilization/timing/power/methodology reports for <b>both</b> cores &middot;
   routed checkpoints &middot; board bitstream &middot; DMP proof experiment
   &middot; this report + slides.</p>
-  <div class="footer"><span>HyperConv</span><span>9</span></div>
+  <div class="footer"><span>HyperConv</span><span>10</span></div>
 </section>
 
 </body>

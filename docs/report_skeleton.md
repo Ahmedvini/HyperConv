@@ -7,7 +7,8 @@
 ## 1. Architecture overview
 
 Streaming line-buffer + sliding-window architecture, fully pipelined at
-**1 output pixel per cycle** (bonus feature):
+**1 output pixel per cycle** (baseline) and **2 output pixels per cycle**
+(hybrid, §8) — both bonus features:
 
 ![Block diagram](Images/block-diagram.png)
 *HyperConv datapath: pixel stream → window generation (line buffers +
@@ -158,12 +159,12 @@ and compares against both. 11 testcases, all **PASS** (Vivado 2025.2 xsim):
 | relu_random | ReLU activation (bonus): mixed-sign outputs clamp at 0 | PASS |
 | relu_neg | ReLU: all-negative case → all-zero output frame | PASS |
 
-### Simulation waveforms (sobel_x, xsim)
+### Simulation waveforms (sobel_x, xsim — baseline core)
 
-![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](Images/waveform-full-frame.png)
+![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](Images/base/waveform-full-frame.png)
 *Full frame — `px_valid`/`px_data` stream in, `out_valid`/`out_data` stream out at 1 pixel/cycle, `frame_done` pulses on the last output.*
 
-![Latency waveform: first pixel to first output](Images/waveform-latency.png)
+![Latency waveform: first pixel to first output](Images/base/waveform-latency.png)
 *Latency — 72 cycles (720 ns @ 100 MHz) from the first pixel to the first valid output.*
 
 ## 5. FPGA results (PYNQ-Z2, xc7z020clg400-1, Vivado 2025.2, OOC, 200 MHz target)
@@ -185,6 +186,17 @@ N=3, 32×32, 4 kernel sets), from synth/reports_z2_dsp/:
 FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs))
     = 1 / (0.135 × (248 + 450)) = **10.6 × 10⁻³** (total power)
     = 1 / (0.032 × 698) = 44.8 × 10⁻³ (dynamic-only, for discussion)
+
+<table>
+<tr>
+<td width="50%"><img src="Images/base/report-utilization.png" alt="Baseline utilization" width="100%"><br><sub><b>Baseline utilization</b> — 248 LUT / 141 FF / 9 DSP / 0 BRAM</sub></td>
+<td width="50%"><img src="Images/base/report-timing.png" alt="Baseline timing" width="100%"><br><sub><b>Baseline timing</b> — WNS +0.441 ns @ 200 MHz, all constraints met</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="Images/base/report-power.png" alt="Baseline power" width="100%"><br><sub><b>Baseline power</b> — 0.135 W total, 0.032 W dynamic</sub></td>
+<td width="50%"><img src="Images/base/device-view.png" alt="Baseline device view" width="100%"><br><sub><b>Device view</b> — placed &amp; routed baseline core (9 DSP48E1, 0 BRAM)</sub></td>
+</tr>
+</table>
 
 Note: the same RTL was previously measured on the ZCU106 (XCZU7EV,
 synth/reports_zu_dsp/) — see section 8. The small Zynq-7020 die leaks
@@ -273,6 +285,21 @@ DMP was proven standalone before integration: 101,276 vectors (all corner
 values incl. 255×−128, full coefficient sweep, 100k random, continuous and
 gapped valid streams) with 0 errors, and exactly **1 DSP48E1** inferred per
 packed multiply (`experiments/dmp_probe/`).
+
+<table>
+<tr>
+<td width="50%"><img src="Images/hybrid/report-utilization.png" alt="Hybrid utilization" width="100%"><br><sub><b>Hybrid utilization</b> — 365 LUT / 532 FF / 9 DSP / 0 BRAM</sub></td>
+<td width="50%"><img src="Images/hybrid/report-timing.png" alt="Hybrid timing" width="100%"><br><sub><b>Hybrid timing</b> — WNS +0.502 ns @ 200 MHz, all constraints met</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="Images/hybrid/report-power.png" alt="Hybrid power" width="100%"><br><sub><b>Hybrid power</b> — 0.164 W total, 0.060 W dynamic</sub></td>
+<td width="50%"><img src="Images/hybrid/device-view.png" alt="Hybrid device view" width="100%"><br><sub><b>Hybrid device view</b> — placed &amp; routed hybrid core (9 DSP48E1, 0 BRAM)</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="Images/hybrid/schematic.png" alt="Hybrid schematic" width="100%"><br><sub><b>Hybrid schematic</b> — window_gen_2px + dmp_mac_array pipeline</sub></td>
+<td width="50%"><img src="Images/hybrid/package-view.png" alt="Hybrid package view" width="100%"><br><sub><b>Package view</b> — hybrid core on the xc7z020 footprint</sub></td>
+</tr>
+</table>
 
 Alternatives investigated and eliminated (measured/arithmetic, see
 docs/hybrid_results.md):

@@ -191,23 +191,27 @@ Candidates investigated and eliminated with measured/arithmetic arguments
 Reproduce: `vivado -mode batch -source synth/build_hybrid.tcl` →
 `synth/reports_hybrid/`, checkpoint `synth/conv_top_hybrid_routed.dcp`.
 
-### Implementation reports (ZCU106 builds — previous target, DSP variant, post-route)
+### Implementation reports (PYNQ-Z2, post-route — hybrid `conv_top_hybrid`, DSP variant)
 
 <table>
 <tr>
-<td width="50%"><img src="docs/Images/report-utilization.png" alt="Utilization report" width="100%"><br><sub><b>Utilization</b> — 263 LUT / 140 FF / 9 DSP / 0 BRAM</sub></td>
-<td width="50%"><img src="docs/Images/report-timing.png" alt="Timing summary" width="100%"><br><sub><b>Timing</b> — WNS +1.094 ns, all constraints met</sub></td>
+<td width="50%"><img src="docs/Images/hybrid/report-utilization.png" alt="Utilization report" width="100%"><br><sub><b>Hybrid utilization</b> — 365 LUT / 532 FF / 9 DSP / 0 BRAM</sub></td>
+<td width="50%"><img src="docs/Images/hybrid/report-timing.png" alt="Timing summary" width="100%"><br><sub><b>Hybrid timing</b> — WNS +0.502 ns @ 200 MHz, all constraints met</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/Images/report-power.png" alt="Power report" width="100%"><br><sub><b>Power</b> — 0.621 W total, 0.029 W dynamic</sub></td>
-<td width="50%"><img src="docs/Images/report-methodology.png" alt="Methodology report" width="100%"><br><sub><b>Methodology</b> — 0 violations (clean)</sub></td>
+<td width="50%"><img src="docs/Images/hybrid/report-power.png" alt="Power report" width="100%"><br><sub><b>Hybrid power</b> — 0.164 W total, 0.060 W dynamic (vectorless)</sub></td>
+<td width="50%"><img src="docs/Images/hybrid/report-methodology.png" alt="Methodology report" width="100%"><br><sub><b>Methodology</b> — 0 violations (clean)</sub></td>
 </tr>
 </table>
 
 <table>
 <tr>
-<td width="50%"><img src="docs/Images/device-view.png" alt="Implemented device view" width="100%"><br><sub><b>Device view</b> — placed &amp; routed core (9 DSP48E2, 0 BRAM)</sub></td>
-<td width="50%"><img src="docs/Images/schematic.png" alt="Elaborated schematic" width="100%"><br><sub><b>Schematic</b> — line-buffer + window + MAC pipeline</sub></td>
+<td width="50%"><img src="docs/Images/hybrid/device-view.png" alt="Implemented device view" width="100%"><br><sub><b>Hybrid device view</b> — placed &amp; routed core (9 DSP48E1, 0 BRAM)</sub></td>
+<td width="50%"><img src="docs/Images/hybrid/schematic.png" alt="Elaborated schematic" width="100%"><br><sub><b>Hybrid schematic</b> — window_gen_2px + dmp_mac_array pipeline</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/Images/hybrid/package-view.png" alt="Package view" width="100%"><br><sub><b>Package view</b> — hybrid core on the xc7z020 footprint</sub></td>
+<td width="50%"><img src="docs/Images/base/device-view.png" alt="Baseline device view" width="100%"><br><sub><b>Baseline device view</b> — conv_top, 9 DSP48E1, 0 BRAM (comparison)</sub></td>
 </tr>
 </table>
 
@@ -226,11 +230,17 @@ packing itself was additionally proven standalone on 101,276 vectors
 
 ### Simulation waveforms (sobel_x, xsim)
 
-![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](docs/Images/waveform-full-frame.png)
+**Baseline (1 px/cycle):**
+
+![Baseline full-frame waveform: pixel stream in, result stream out, frame_done pulse](docs/Images/base/waveform-full-frame.png)
 *Full frame — `px_valid`/`px_data` stream in, `out_valid`/`out_data` stream out at 1 pixel/cycle, `frame_done` pulses on the last output.*
 
-![Latency waveform: first pixel to first output](docs/Images/waveform-latency.png)
+![Baseline latency waveform: first pixel to first output](docs/Images/base/waveform-latency.png)
 *Latency — 72 cycles (720 ns @ 100 MHz) from the first pixel to the first valid output.*
+
+**Hybrid (2 px/cycle):** the hybrid streams pixel pairs and produces two
+results per cycle — see `sim/run_all_hybrid.sh` (waveform captures for the
+2-px interface can be dumped with `+VCD`).
 
 ### Edge-detection demo (bonus)
 
