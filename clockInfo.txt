@@ -1,6 +1,6 @@
 -------------------------------------
 | Tool Version : Vivado v.2025.2
-| Date         : Mon Sep 14 19:02:57 2026
+| Date         : Tue Sep 15 03:39:24 2026
 | Host         : pop-os
 | Design       : design_1
 | Device       : xc7z020-clg400-1--

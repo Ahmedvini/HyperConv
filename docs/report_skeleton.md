@@ -1,13 +1,14 @@
 # HyperConv — Competition Report Skeleton
 
 > Working draft for the 2026 IEEE SSCS Egypt Student Design Competition report.
-> Sections map 1:1 to the deliverables checklist in plan.md. Items marked
-> `TODO` need content or final numbers.
+> Sections map 1:1 to the deliverables checklist in plan.md. All numeric
+> content is final (measured).
 
 ## 1. Architecture overview
 
 Streaming line-buffer + sliding-window architecture, fully pipelined at
-**1 output pixel per cycle** (bonus feature):
+**1 output pixel per cycle** (baseline) and **2 output pixels per cycle**
+(hybrid, §8) — both bonus features:
 
 ![Block diagram](Images/block-diagram.png)
 *HyperConv datapath: pixel stream → window generation (line buffers +
@@ -46,7 +47,13 @@ kernel bus ─► kernel_mem (4 programmable sets, registered select mux)
 - Accumulator is full-precision → **no intermediate overflow possible**;
   the only precision decision is the final saturation to 16 bits
   (no rounding needed — integer arithmetic is exact).
-- Numeric example (TODO: copy one window from hand_4x4 testcase).
+- Numeric example (hand_4x4 testcase, first output pixel): image 4×4 = 01
+  02 03 / 05 06 07 / 09 0a 0b / … , kernel = all-ones 3×3. First window:
+  {1,2,3, 5,6,7, 9,10,11}; products = pixels (×1, all fit s16); partials
+  1+2+3 = 6, 5+6+7 = 18, 9+10+11 = 30 (fit s18); final sum 54 = 0x36 —
+  matches expected.hex[0]. The four outputs 0x36, 0x3F, 0x5A, 0x63 (54,
+  63, 90, 99 — the corner sums) are all hand-checkable from the hex files.
+  Positive overflow (255×127×9 → +32767) is exercised by saturate_max.
 - Justification of 8-bit unsigned input: native grayscale range.
 
 ## 3. RTL implementation
@@ -122,6 +129,14 @@ The board demo wrapper (`rtl/selftest/selftest_top.v`) *does* use a
   runs in parallel whenever `out_valid` fires (mismatch latches `fail`).
 - `S_DONE`: latches pass/fail/done LEDs.
 
+A hybrid twin (`rtl/selftest/selftest_top_hybrid.v`) drives the 2-px core
+the same way (image streamed as px0/px1 pairs, both beat outputs compared
+against the *same* golden ROM); verified in simulation (PASS, 542 cycles —
+about half the baseline wrapper's cycle count) and built as
+`synth/board/build_hybrid/hyperconv_hybrid_selftest.bit` (579 LUT /
+597 FF / 9 DSP / 0 BRAM, WNS +3.068 @ 100 MHz), reusing `board.xdc`
+unchanged.
+
 ## 4. Verification
 
 Golden models: `golden/conv_golden.py` (numpy) and `golden/conv_golden.m`
@@ -144,12 +159,12 @@ and compares against both. 11 testcases, all **PASS** (Vivado 2025.2 xsim):
 | relu_random | ReLU activation (bonus): mixed-sign outputs clamp at 0 | PASS |
 | relu_neg | ReLU: all-negative case → all-zero output frame | PASS |
 
-### Simulation waveforms (sobel_x, xsim)
+### Simulation waveforms (sobel_x, xsim — baseline core)
 
-![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](Images/waveform-full-frame.png)
+![Full-frame waveform: pixel stream in, result stream out, frame_done pulse](Images/base/waveform-full-frame.png)
 *Full frame — `px_valid`/`px_data` stream in, `out_valid`/`out_data` stream out at 1 pixel/cycle, `frame_done` pulses on the last output.*
 
-![Latency waveform: first pixel to first output](Images/waveform-latency.png)
+![Latency waveform: first pixel to first output](Images/base/waveform-latency.png)
 *Latency — 72 cycles (720 ns @ 100 MHz) from the first pixel to the first valid output.*
 
 ## 5. FPGA results (PYNQ-Z2, xc7z020clg400-1, Vivado 2025.2, OOC, 200 MHz target)
@@ -171,6 +186,17 @@ N=3, 32×32, 4 kernel sets), from synth/reports_z2_dsp/:
 FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs))
     = 1 / (0.135 × (248 + 450)) = **10.6 × 10⁻³** (total power)
     = 1 / (0.032 × 698) = 44.8 × 10⁻³ (dynamic-only, for discussion)
+
+<table>
+<tr>
+<td width="50%"><img src="Images/base/report-utilization.png" alt="Baseline utilization" width="100%"><br><sub><b>Baseline utilization</b> — 248 LUT / 141 FF / 9 DSP / 0 BRAM</sub></td>
+<td width="50%"><img src="Images/base/report-timing.png" alt="Baseline timing" width="100%"><br><sub><b>Baseline timing</b> — WNS +0.441 ns @ 200 MHz, all constraints met</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="Images/base/report-power.png" alt="Baseline power" width="100%"><br><sub><b>Baseline power</b> — 0.135 W total, 0.032 W dynamic</sub></td>
+<td width="50%"><img src="Images/base/device-view.png" alt="Baseline device view" width="100%"><br><sub><b>Device view</b> — placed &amp; routed baseline core (9 DSP48E1, 0 BRAM)</sub></td>
+</tr>
+</table>
 
 Note: the same RTL was previously measured on the ZCU106 (XCZU7EV,
 synth/reports_zu_dsp/) — see section 8. The small Zynq-7020 die leaks
@@ -220,7 +246,78 @@ variant is measured there as the justification for choosing DSP mapping.
 - Zero padding **not** used — valid convolution, documented above
 - Cross-correlation convention (no kernel flip), matching golden model
 
-## 8. Tradeoffs discussion (TODO: expand)
+## 8. Hybrid architecture: baseline vs DMP 2-pixel/cycle (all numbers measured)
+
+A second core, `conv_top_hybrid`, doubles throughput to **2 px/cycle** by
+packing two multiplications into each DSP48E1 (**DMP — dual-multiply
+packing**), exploiting that two horizontally adjacent windows are convolved
+with the *same* coefficient:
+
+```
+A = {1'b0, w1[k], 8'h00, w0[k]}   25-bit (never negative as signed)
+B = c[k]                           s8
+P = A·B = w0[k]·c[k] + 2¹⁶·(w1[k]·c[k])
+
+p0[k] = $signed(P[15:0])           exact s16 (u8×s8 fits s16)
+p1[k] = $signed(P[32:16]) + P[15]  +1 borrow correction when p0 < 0
+```
+
+![Baseline vs hybrid](Images/block-diagram-hybrid.png)
+
+| | Baseline | **Hybrid (DMP)** | Δ |
+|---|---|---|---|
+| Throughput | 1 px/cyc | **2 px/cyc** | 2× |
+| LUTs / FFs | 248 / 141 | 365 / 532 | +117 / +391 |
+| DSPs / BRAMs | 9 / 0 | **9 / 0** | 0 / 0 |
+| WNS @ 200 MHz | +0.441 | **+0.502** | more slack (hold met both) |
+| Power total (dyn) | 0.135 W (32 mW) | 0.164 W (60 mW) | +29 mW |
+| Pipeline latency | 6 cyc (72 total) | 7 cyc (73 total) | +1 stage |
+| Verification | 11/11 | **11/11** (same vectors) | bit-identical |
+| **FoM** | 10.60×10⁻³ | **14.96×10⁻³** | **+41%** |
+
+```
+FoM = throughput / [power × (LUT + 50·DSP + 100·BRAM)]
+baseline: 1 / [0.135 × 698]  = 10.60×10⁻³
+hybrid:   2 / [0.164 × 815]  = 14.96×10⁻³
+```
+
+DMP was proven standalone before integration: 101,276 vectors (all corner
+values incl. 255×−128, full coefficient sweep, 100k random, continuous and
+gapped valid streams) with 0 errors, and exactly **1 DSP48E1** inferred per
+packed multiply (`experiments/dmp_probe/`).
+
+<table>
+<tr>
+<td width="50%"><img src="Images/hybrid/report-utilization.png" alt="Hybrid utilization" width="100%"><br><sub><b>Hybrid utilization</b> — 365 LUT / 532 FF / 9 DSP / 0 BRAM</sub></td>
+<td width="50%"><img src="Images/hybrid/report-timing.png" alt="Hybrid timing" width="100%"><br><sub><b>Hybrid timing</b> — WNS +0.502 ns @ 200 MHz, all constraints met</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="Images/hybrid/report-power.png" alt="Hybrid power" width="100%"><br><sub><b>Hybrid power</b> — 0.164 W total, 0.060 W dynamic</sub></td>
+<td width="50%"><img src="Images/hybrid/device-view.png" alt="Hybrid device view" width="100%"><br><sub><b>Hybrid device view</b> — placed &amp; routed hybrid core (9 DSP48E1, 0 BRAM)</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="Images/hybrid/schematic.png" alt="Hybrid schematic" width="100%"><br><sub><b>Hybrid schematic</b> — window_gen_2px + dmp_mac_array pipeline</sub></td>
+<td width="50%"><img src="Images/hybrid/package-view.png" alt="Hybrid package view" width="100%"><br><sub><b>Package view</b> — hybrid core on the xc7z020 footprint</sub></td>
+</tr>
+</table>
+
+Alternatives investigated and eliminated (measured/arithmetic, see
+docs/hybrid_results.md):
+- **DMP with separate coefficients**: infeasible — the 18-bit B port caps
+  the stride below cross-term isolation.
+- **DSP cascade accumulation**: impossible at stride 16 — the packed
+  window-0 partial sum (s19) overflows the low field; a safe stride needs
+  a 36-bit A port.
+- **Multipumping (DSP @ 2×Fs)**: dominated — DMP statically supplies the
+  18 multiplies/cycle that 2 px needs; pumping adds MMCM + CDC for zero
+  gain; 4-phase pumping (~880 MHz DSP clock) does not close on −1 fabric.
+- **2 px/cycle without DMP (18 DSP)**: FoM-neutral (denominator +450).
+
+Hybrid RTL constraints (documented; satisfied by all testcases and the
+32×32 minimum): IMG_W even, N odd → every beat yields exactly two valid
+outputs. Interface: `px0`/`px1` in (even/odd column), `out0`/`out1` out.
+
+## 9. Tradeoffs discussion
 
 - Adder-tree pipelining: the original single-stage 9-input tree was the
   critical path on 7-series (6.5 ns, 9 logic levels). Splitting it into
@@ -253,3 +350,8 @@ variant is measured there as the justification for choosing DSP mapping.
   on the Z7020 scores ≈4.3× better FoM. If the competition allows choosing
   the reported target, use the smallest part that fits (or the provided
   board's part).
+- **Baseline vs hybrid (§8)**: the hybrid's +41% FoM comes from doubling
+  numerator throughput while paying +117 LUT +29 mW and zero extra DSPs —
+  the DMP packing converts "one multiply per DSP per cycle" into "one
+  *window pair* per DSP per cycle". Single clock domain, no MMCM/CDC risk,
+  timing slack actually *improved* (+0.441 → +0.502 ns).
