@@ -128,6 +128,14 @@ The board demo wrapper (`rtl/selftest/selftest_top.v`) *does* use a
   runs in parallel whenever `out_valid` fires (mismatch latches `fail`).
 - `S_DONE`: latches pass/fail/done LEDs.
 
+A hybrid twin (`rtl/selftest/selftest_top_hybrid.v`) drives the 2-px core
+the same way (image streamed as px0/px1 pairs, both beat outputs compared
+against the *same* golden ROM); verified in simulation (PASS, 542 cycles —
+about half the baseline wrapper's cycle count) and built as
+`synth/board/build_hybrid/hyperconv_hybrid_selftest.bit` (579 LUT /
+597 FF / 9 DSP / 0 BRAM, WNS +3.068 @ 100 MHz), reusing `board.xdc`
+unchanged.
+
 ## 4. Verification
 
 Golden models: `golden/conv_golden.py` (numpy) and `golden/conv_golden.m`

@@ -268,3 +268,20 @@ This runs synth → impl → `write_bitstream`, producing
 `sobel_x`) selects which `sim/tests/<case>` vectors bake into the ROMs.
 `synth/board/board_top.v` handles the clock buffer (single-ended by default;
 comments show the differential-clock swap) and reset polarity.
+
+### Hybrid board demo
+
+The hybrid core has its own self-test wrapper, verified in simulation
+(`tb/tb_selftest_hybrid.v`: PASS, 542 cycles — twice as fast as the
+baseline wrapper) and built for PYNQ-Z2:
+
+```bash
+vivado -mode batch -source synth/board/build_bitstream_hybrid.tcl \
+    -tclargs xc7z020clg400-1 sobel_x
+# → synth/board/build_hybrid/hyperconv_hybrid_selftest.bit
+```
+
+Same pins, same LED mapping (pass/fail/done/heartbeat), same baked vectors
+as the baseline — `board.xdc` is reused verbatim. Post-route: 579 LUT /
+597 FF / 9 DSP / 0 BRAM, WNS +3.068 @ 100 MHz, DRC clean (ZPS7-1 advisory
+only, as on the baseline board flow).

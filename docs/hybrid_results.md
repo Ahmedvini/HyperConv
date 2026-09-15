@@ -134,6 +134,24 @@ must ship as-is: `main` is untouched; the hybrid lives on
 later. The baseline board bitstream (`synth/board/build/hyperconv_selftest.bit`)
 remains valid.
 
-Remaining work to make the hybrid board-demo ready (not required for the
-core competition numbers): `board_top_hybrid` wrapper feeding px0/px1 from
-the selftest ROM + `board.xdc` reuse — estimated < 1 hour.
+### Board demo — both bitstreams available
+
+The hybrid board demo is complete and verified:
+
+```bash
+vivado -mode batch -source synth/board/build_bitstream_hybrid.tcl \
+    -tclargs xc7z020clg400-1 sobel_x
+# → synth/board/build_hybrid/hyperconv_hybrid_selftest.bit
+```
+
+| | Baseline selftest | **Hybrid selftest** |
+|---|---|---|
+| Wrapper | `selftest_top` + `board_top` | `selftest_top_hybrid` + `board_top_hybrid` |
+| Pins / LEDs | `board.xdc` (H16, D19, R14/P14/N16/M14) | **same file, unchanged** |
+| LUT / FF / DSP / BRAM | 399 / – / 9 / 0.5 | 579 / 597 / 9 / 0 |
+| Timing @ 100 MHz | WNS +4.055 | WNS +3.068 |
+| Sim self-test | PASS | **PASS** (542 cycles vs ~1030 — 2-px confirmed) |
+
+The hybrid self-test streams the baked-in image as pixel *pairs* and
+compares both outputs of every beat against the *same* golden `expected.hex`
+as the baseline — one set of vectors validates both cores on-chip.
