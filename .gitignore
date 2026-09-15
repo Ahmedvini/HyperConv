@@ -34,3 +34,4 @@ experiments/dmp_probe/clockInfo.txt
 sim/tests/*/dut_out_hybrid.hex
 experiments/dmp_probe/timing_impl.rpt
 synth/board/build_hybrid/clockInfo.txt
+synth/board/build_hybrid/synth/
