@@ -46,7 +46,13 @@ kernel bus ─► kernel_mem (4 programmable sets, registered select mux)
 - Accumulator is full-precision → **no intermediate overflow possible**;
   the only precision decision is the final saturation to 16 bits
   (no rounding needed — integer arithmetic is exact).
-- Numeric example (TODO: copy one window from hand_4x4 testcase).
+- Numeric example (hand_4x4 testcase, first output pixel): image 4×4 = 01
+  02 03 / 05 06 07 / 09 0a 0b / … , kernel = all-ones 3×3. First window:
+  {1,2,3, 5,6,7, 9,10,11}; products = pixels (×1, all fit s16); partials
+  1+2+3 = 6, 5+6+7 = 18, 9+10+11 = 30 (fit s18); final sum 54 = 0x36 —
+  matches expected.hex[0]. The four outputs 0x36, 0x3F, 0x5A, 0x63 (54,
+  63, 90, 99 — the corner sums) are all hand-checkable from the hex files.
+  Positive overflow (255×127×9 → +32767) is exercised by saturate_max.
 - Justification of 8-bit unsigned input: native grayscale range.
 
 ## 3. RTL implementation
@@ -220,7 +226,63 @@ variant is measured there as the justification for choosing DSP mapping.
 - Zero padding **not** used — valid convolution, documented above
 - Cross-correlation convention (no kernel flip), matching golden model
 
-## 8. Tradeoffs discussion (TODO: expand)
+## 8. Hybrid architecture: baseline vs DMP 2-pixel/cycle (all numbers measured)
+
+A second core, `conv_top_hybrid`, doubles throughput to **2 px/cycle** by
+packing two multiplications into each DSP48E1 (**DMP — dual-multiply
+packing**), exploiting that two horizontally adjacent windows are convolved
+with the *same* coefficient:
+
+```
+A = {1'b0, w1[k], 8'h00, w0[k]}   25-bit (never negative as signed)
+B = c[k]                           s8
+P = A·B = w0[k]·c[k] + 2¹⁶·(w1[k]·c[k])
+
+p0[k] = $signed(P[15:0])           exact s16 (u8×s8 fits s16)
+p1[k] = $signed(P[32:16]) + P[15]  +1 borrow correction when p0 < 0
+```
+
+![Baseline vs hybrid](Images/block-diagram-hybrid.png)
+
+| | Baseline | **Hybrid (DMP)** | Δ |
+|---|---|---|---|
+| Throughput | 1 px/cyc | **2 px/cyc** | 2× |
+| LUTs / FFs | 248 / 141 | 365 / 532 | +117 / +391 |
+| DSPs / BRAMs | 9 / 0 | **9 / 0** | 0 / 0 |
+| WNS @ 200 MHz | +0.441 | **+0.502** | more slack (hold met both) |
+| Power total (dyn) | 0.135 W (32 mW) | 0.164 W (60 mW) | +29 mW |
+| Pipeline latency | 6 cyc (72 total) | 7 cyc (73 total) | +1 stage |
+| Verification | 11/11 | **11/11** (same vectors) | bit-identical |
+| **FoM** | 10.60×10⁻³ | **14.96×10⁻³** | **+41%** |
+
+```
+FoM = throughput / [power × (LUT + 50·DSP + 100·BRAM)]
+baseline: 1 / [0.135 × 698]  = 10.60×10⁻³
+hybrid:   2 / [0.164 × 815]  = 14.96×10⁻³
+```
+
+DMP was proven standalone before integration: 101,276 vectors (all corner
+values incl. 255×−128, full coefficient sweep, 100k random, continuous and
+gapped valid streams) with 0 errors, and exactly **1 DSP48E1** inferred per
+packed multiply (`experiments/dmp_probe/`).
+
+Alternatives investigated and eliminated (measured/arithmetic, see
+docs/hybrid_results.md):
+- **DMP with separate coefficients**: infeasible — the 18-bit B port caps
+  the stride below cross-term isolation.
+- **DSP cascade accumulation**: impossible at stride 16 — the packed
+  window-0 partial sum (s19) overflows the low field; a safe stride needs
+  a 36-bit A port.
+- **Multipumping (DSP @ 2×Fs)**: dominated — DMP statically supplies the
+  18 multiplies/cycle that 2 px needs; pumping adds MMCM + CDC for zero
+  gain; 4-phase pumping (~880 MHz DSP clock) does not close on −1 fabric.
+- **2 px/cycle without DMP (18 DSP)**: FoM-neutral (denominator +450).
+
+Hybrid RTL constraints (documented; satisfied by all testcases and the
+32×32 minimum): IMG_W even, N odd → every beat yields exactly two valid
+outputs. Interface: `px0`/`px1` in (even/odd column), `out0`/`out1` out.
+
+## 9. Tradeoffs discussion
 
 - Adder-tree pipelining: the original single-stage 9-input tree was the
   critical path on 7-series (6.5 ns, 9 logic levels). Splitting it into
@@ -253,3 +315,8 @@ variant is measured there as the justification for choosing DSP mapping.
   on the Z7020 scores ≈4.3× better FoM. If the competition allows choosing
   the reported target, use the smallest part that fits (or the provided
   board's part).
+- **Baseline vs hybrid (§8)**: the hybrid's +41% FoM comes from doubling
+  numerator throughput while paying +117 LUT +29 mW and zero extra DSPs —
+  the DMP packing converts "one multiply per DSP per cycle" into "one
+  *window pair* per DSP per cycle". Single clock domain, no MMCM/CDC risk,
+  timing slack actually *improved* (+0.441 → +0.502 ns).

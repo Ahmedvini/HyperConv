@@ -54,11 +54,12 @@
 <section class="slide title-slide">
   <div class="kicker">IEEE SSCS Egypt Chapter — 2026 Student Design Competition</div>
   <h1>HyperConv</h1>
-  <div class="sub">A 1-pixel-per-cycle N×N CNN convolution accelerator<br>
+  <div class="sub">A 2-pixel-per-cycle N×N CNN convolution accelerator<br>
   for Edge-AI vision — on the PYNQ-Z2 (Zynq-7020)</div>
   <div style="margin-top:48px; color:#666; font-size:22px">
-    Fully pipelined &middot; 4 programmable kernel sets &middot; ReLU &middot;
-    bit-exact vs dual golden models &middot; all 5 bonus items
+    Fully pipelined &middot; dual-multiply-packed DSPs &middot; 4 programmable
+    kernel sets &middot; ReLU &middot; bit-exact vs dual golden models &middot;
+    all 5 bonus items
   </div>
   <div class="footer"><span>HyperConv</span><span>1</span></div>
 </section>
@@ -152,18 +153,36 @@
 <section class="slide">
   <h2>FPGA results — PYNQ-Z2 (xc7z020clg400-1), post-route</h2>
   <div class="kpi">
-    <div class="metric"><div class="big">1</div><div class="lbl">output px / cycle<br>(throughput)</div></div>
-    <div class="metric"><div class="big">219</div><div class="lbl">MHz Fmax<br>(WNS +0.441 @ 200 MHz)</div></div>
-    <div class="metric"><div class="big">248</div><div class="lbl">LUTs &middot; 141 FFs<br>9 DSPs &middot; 0 BRAM</div></div>
-    <div class="metric"><div class="big">135</div><div class="lbl">mW total<br>(32 mW dynamic)</div></div>
+    <div class="metric"><div class="big">2</div><div class="lbl">output px / cycle<br>(throughput)</div></div>
+    <div class="metric"><div class="big">222</div><div class="lbl">MHz Fmax<br>(WNS +0.502 @ 200 MHz)</div></div>
+    <div class="metric"><div class="big">365</div><div class="lbl">LUTs &middot; 532 FFs<br>9 DSPs &middot; 0 BRAM</div></div>
+    <div class="metric"><div class="big">164</div><div class="lbl">mW total<br>(60 mW dynamic)</div></div>
   </div>
   <table style="margin-top:28px">
-    <tr><th>Variant</th><th>LUT/FF/DSP</th><th>Fmax</th><th>Power (dyn)</th><th>FoM</th></tr>
-    <tr><td><b>DSP mult (chosen)</b></td><td><b>248 / 141 / 9</b></td><td><b>219 MHz</b></td><td><b>0.135 W (32 mW)</b></td><td><b>10.6×10⁻³</b></td></tr>
-    <tr><td>LUT mult (comparison)</td><td>858 / 562 / 0</td><td>168 MHz ✗</td><td>0.152 W (48 mW)</td><td>7.67×10⁻³</td></tr>
+    <tr><th>Variant</th><th>px/cyc</th><th>LUT/FF/DSP</th><th>Fmax</th><th>Power (dyn)</th><th>FoM</th></tr>
+    <tr><td>Baseline (1-px)</td><td>1</td><td>248 / 141 / 9</td><td>219 MHz</td><td>0.135 W (32 mW)</td><td>10.60×10⁻³</td></tr>
+    <tr><td><b>Hybrid DMP (chosen)</b></td><td><b>2</b></td><td><b>365 / 532 / 9</b></td><td><b>222 MHz</b></td><td><b>0.164 W (60 mW)</b></td><td><b>14.96×10⁻³</b></td></tr>
+    <tr><td>LUT mult (comparison)</td><td>1</td><td>858 / 562 / 0</td><td>168 MHz ✗</td><td>0.152 W (48 mW)</td><td>7.67×10⁻³</td></tr>
   </table>
-  <p class="note">FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs)) — DSP mapping wins every axis; timing, hold and methodology (0 violations) all clean.</p>
+  <p class="note">FoM = Throughput / (Power × (LUTs + 50·DSPs + 100·BRAMs)) — the hybrid doubles throughput on the same 9 DSPs: +41% FoM; timing, hold and methodology all clean.</p>
   <div class="footer"><span>HyperConv</span><span>6</span></div>
+</section>
+
+<!-- 6b ------------------------------------------------------- hybrid / DMP -->
+<section class="slide">
+  <h2>How 2 px/cycle costs zero extra DSPs — dual-multiply packing</h2>
+  <img src="../docs/Images/block-diagram-hybrid.png" alt="baseline vs hybrid"
+       style="max-height:330px">
+  <ul style="font-size:20px">
+    <li>Adjacent windows share the kernel → two pixels pack into the DSP's
+        25-bit <b>A</b> port (stride 16) against one shared coefficient:
+        <code>P&nbsp;=&nbsp;w0·c + 2¹⁶·(w1·c)</code>; one-bit borrow correction on extraction.</li>
+    <li>Proven standalone: 101,276 vectors, 0 errors, exactly 1 DSP per packed multiply.</li>
+    <li>Alternatives eliminated by measurement/arithmetic: separate-coefficient DMP
+        (18-bit B port), DSP cascade (s19 overflows stride-16 field),
+        multipumping (adds MMCM/CDC, zero gain), 18-DSP 2-px (FoM-neutral).</li>
+  </ul>
+  <div class="footer"><span>HyperConv</span><span>7</span></div>
 </section>
 
 <!-- 7 ----------------------------------------------------------- tradeoffs -->
@@ -176,6 +195,9 @@
     <li><b>DSP vs LUT multipliers</b>: LUT mult misses 200 MHz on Z-7020
         (multiply itself is the critical path). DSP mapping saves ~560 LUTs,
         absorbs pipeline FFs into MREG/PREG (562→141 FFs), and wins FoM.</li>
+    <li><b>Baseline vs hybrid</b>: DMP doubles throughput for +117 LUTs,
+        +29 mW and <i>zero</i> extra DSPs → FoM 10.60 → 14.96×10⁻³ (+41%),
+        with <i>more</i> timing slack. Single clock domain, no MMCM/CDC.</li>
     <li><b>Distributed RAM line buffers</b>: avoid the 100× BRAM FoM penalty
         at 32-px rows; natural BRAM mapping beyond ~128 px, no RTL change.</li>
     <li><b>Valid-gated pipeline</b>: bubbles hold data (switching power ↓),
@@ -183,7 +205,7 @@
     <li><b>Part choice dominates FoM via static power</b>: same RTL scores
         10.6×10⁻³ on Z-7020 vs 2.26×10⁻³ on ZU7EV (0.5 W die leakage).</li>
   </ul>
-  <div class="footer"><span>HyperConv</span><span>7</span></div>
+  <div class="footer"><span>HyperConv</span><span>8</span></div>
 </section>
 
 <!-- 8 ------------------------------------------------------------- bonus -->
@@ -192,17 +214,19 @@
   <table>
     <tr><th>Bonus</th><th>Implementation</th><th>Status</th></tr>
     <tr><td>Board demonstration</td><td>Standalone self-test bitstream on PYNQ-Z2: on-chip comparison, LED verdict (pass/fail/done/heartbeat)</td><td>✔ built, timing met</td></tr>
-    <tr><td>1 output px / cycle</td><td>Fully pipelined from the ground up</td><td>✔</td></tr>
+    <tr><td>&ge; 1 output px / cycle</td><td>Fully pipelined + DMP dual-multiply packing</td><td>✔ 2 px/cycle</td></tr>
     <tr><td>Multiple kernels</td><td>4 runtime-programmable kernel sets, registered select</td><td>✔</td></tr>
     <tr><td>ReLU activation</td><td>Final-stage clamp, +7 LUTs, zero latency cost</td><td>✔ 2 dedicated testcases</td></tr>
     <tr><td>Edge-detection demo</td><td>Sobel X/Y on synthetic scene, golden-checked PNGs</td><td>✔</td></tr>
   </table>
   <h3 style="margin-top:26px">Deliverables package</h3>
-  <p>RTL (5 modules + selftest) &middot; self-checking TB &middot; Python + MATLAB
-  golden models &middot; 11 testcase vector sets with expected outputs &middot;
-  post-route utilization/timing/power/methodology reports &middot; routed
-  checkpoints &middot; board bitstream &middot; this report + slides.</p>
-  <div class="footer"><span>HyperConv</span><span>8</span></div>
+  <p>RTL (5 baseline + 3 hybrid modules + selftest) &middot; self-checking TBs
+  (baseline + hybrid) &middot; Python + MATLAB golden models &middot; 11
+  testcase vector sets with expected outputs &middot; post-route
+  utilization/timing/power/methodology reports for <b>both</b> cores &middot;
+  routed checkpoints &middot; board bitstream &middot; DMP proof experiment
+  &middot; this report + slides.</p>
+  <div class="footer"><span>HyperConv</span><span>9</span></div>
 </section>
 
 </body>
